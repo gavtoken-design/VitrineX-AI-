@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminService } from '../services/adminService';
-import { AdminLog, UserProfile, AdminConfig } from '../types';
+import { AdminLog, UserProfile, AdminConfig, ClientConfig, AppNotification } from '../types';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -14,26 +14,59 @@ import {
   LockClosedIcon,
   PowerIcon,
   ArrowPathIcon,
-  ExclamationTriangleIcon,
   CheckCircleIcon,
   ArchiveBoxIcon,
   NoSymbolIcon,
   ArrowRightStartOnRectangleIcon,
-  HandRaisedIcon
+  HandRaisedIcon,
+  BellIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  ChartBarIcon,
+  KeyIcon,
+  XMarkIcon,
+  MegaphoneIcon,
 } from '@heroicons/react/24/outline';
 import { useToast } from '../contexts/ToastContext';
+
+type TabType = 'dashboard' | 'clients' | 'notifications' | 'apikeys' | 'system' | 'logs';
 
 const AdminConsole: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [pin, setPin] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'system' | 'users' | 'vault' | 'logs'>('system');
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
 
   // Data States
   const [config, setConfig] = useState<AdminConfig | null>(null);
   const [logs, setLogs] = useState<AdminLog[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [clientConfigs, setClientConfigs] = useState<ClientConfig[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loadingData, setLoadingData] = useState(false);
+
+  // Modal States
+  const [showClientModal, setShowClientModal] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [editingClient, setEditingClient] = useState<UserProfile | null>(null);
+  const [selectedClientConfig, setSelectedClientConfig] = useState<ClientConfig | null>(null);
+
+  // Form States
+  const [clientForm, setClientForm] = useState({
+    name: '',
+    email: '',
+    plan: 'free' as 'free' | 'premium',
+    businessName: '',
+    industry: '',
+  });
+
+  const [notificationForm, setNotificationForm] = useState({
+    title: '',
+    message: '',
+    type: 'info' as 'info' | 'warning' | 'success' | 'announcement',
+    expiresAt: '',
+  });
 
   const { addToast } = useToast();
 
@@ -60,14 +93,18 @@ const AdminConsole: React.FC = () => {
   const loadDashboardData = useCallback(async () => {
     setLoadingData(true);
     try {
-      const [cfg, lgs, usrs] = await Promise.all([
+      const [cfg, lgs, usrs, configs, notifs] = await Promise.all([
         adminService.getConfig(),
         adminService.getLogs(),
-        adminService.getUsers()
+        adminService.getUsers(),
+        adminService.getAllClientConfigs(),
+        adminService.getNotifications(),
       ]);
       setConfig(cfg);
       setLogs(lgs);
       setUsers(usrs);
+      setClientConfigs(configs);
+      setNotifications(notifs);
     } catch (err) {
       console.error(err);
     } finally {
@@ -75,14 +112,17 @@ const AdminConsole: React.FC = () => {
     }
   }, []);
 
-  // Recarrega apenas os logs e usuários para feedback imediato
   const refreshData = async () => {
-    const [newLogs, newUsers] = await Promise.all([
+    const [newLogs, newUsers, newConfigs, newNotifs] = await Promise.all([
       adminService.getLogs(),
-      adminService.getUsers()
+      adminService.getUsers(),
+      adminService.getAllClientConfigs(),
+      adminService.getNotifications(),
     ]);
     setLogs(newLogs);
     setUsers(newUsers);
+    setClientConfigs(newConfigs);
+    setNotifications(newNotifs);
   };
 
   const toggleModule = async (moduleKey: string) => {
@@ -123,6 +163,91 @@ const AdminConsole: React.FC = () => {
     addToast({ type: 'success', message: `Backup ${filename} enviado para Drive Seguro.` });
   };
 
+  // Client Management
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await adminService.createClient({
+        name: clientForm.name,
+        email: clientForm.email,
+        plan: clientForm.plan,
+        businessProfile: {
+          name: clientForm.businessName,
+          industry: clientForm.industry,
+          targetAudience: 'General',
+          visualStyle: 'Modern',
+        },
+      });
+      addToast({ type: 'success', message: 'Cliente criado com sucesso!' });
+      setShowClientModal(false);
+      setClientForm({ name: '', email: '', plan: 'free', businessName: '', industry: '' });
+      refreshData();
+    } catch (err) {
+      addToast({ type: 'error', message: 'Erro ao criar cliente.' });
+    }
+  };
+
+  const handleDeleteClient = async (userId: string, email: string) => {
+    if (confirm(`ATENÇÃO: Deletar permanentemente o cliente ${email}? Esta ação não pode ser desfeita!`)) {
+      const success = await adminService.deleteClient(userId);
+      if (success) {
+        addToast({ type: 'success', message: 'Cliente deletado com sucesso.' });
+        refreshData();
+      }
+    }
+  };
+
+  const handleToggleClientApi = async (userId: string, currentEnabled: boolean) => {
+    await adminService.toggleClientApiAccess(userId, !currentEnabled);
+    addToast({ type: 'info', message: `API ${!currentEnabled ? 'liberada' : 'bloqueada'}` });
+    refreshData();
+  };
+
+  const handleToggleClientModule = async (userId: string, moduleName: string, currentEnabled: boolean) => {
+    await adminService.toggleClientModule(userId, moduleName, !currentEnabled);
+    addToast({ type: 'info', message: `Módulo ${moduleName} ${!currentEnabled ? 'habilitado' : 'desabilitado'}` });
+    refreshData();
+  };
+
+  // Notification Management
+  const handleCreateNotification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await adminService.createNotification({
+        title: notificationForm.title,
+        message: notificationForm.message,
+        type: notificationForm.type,
+        createdBy: 'admin',
+        isActive: true,
+        expiresAt: notificationForm.expiresAt || undefined,
+      });
+      addToast({ type: 'success', message: 'Notificação enviada para todos os usuários!' });
+      setShowNotificationModal(false);
+      setNotificationForm({ title: '', message: '', type: 'info', expiresAt: '' });
+      refreshData();
+    } catch (err) {
+      addToast({ type: 'error', message: 'Erro ao criar notificação.' });
+    }
+  };
+
+  const handleToggleNotification = async (id: string) => {
+    await adminService.toggleNotificationStatus(id);
+    refreshData();
+  };
+
+  const handleDeleteNotification = async (id: string) => {
+    if (confirm('Deletar esta notificação?')) {
+      await adminService.deleteNotification(id);
+      addToast({ type: 'success', message: 'Notificação deletada.' });
+      refreshData();
+    }
+  };
+
+  const openClientConfig = (userId: string) => {
+    const config = clientConfigs.find(c => c.userId === userId);
+    setSelectedClientConfig(config || null);
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4 font-mono text-green-500">
@@ -159,6 +284,12 @@ const AdminConsole: React.FC = () => {
     );
   }
 
+  // Calculate Dashboard Metrics
+  const activeUsers = users.filter(u => u.status === 'active').length;
+  const blockedUsers = users.filter(u => u.status === 'blocked').length;
+  const premiumUsers = users.filter(u => u.plan === 'premium').length;
+  const activeNotifications = notifications.filter(n => n.isActive).length;
+
   return (
     <div className="min-h-screen bg-gray-950 text-gray-300 font-mono flex flex-col">
       {/* Top Bar */}
@@ -166,7 +297,7 @@ const AdminConsole: React.FC = () => {
         <div className="flex items-center gap-3">
           <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse shadow-[0_0_10px_red]"></div>
           <span className="font-bold text-lg tracking-wider text-gray-100">MASTER CONTROL ROOM</span>
-          <span className="text-xs bg-gray-800 px-2 py-0.5 rounded text-gray-400">v2.5.0-core</span>
+          <span className="text-xs bg-gray-800 px-2 py-0.5 rounded text-gray-400">v2.5.0-admin</span>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-xs text-green-500 flex items-center gap-1">
@@ -185,30 +316,12 @@ const AdminConsole: React.FC = () => {
         {/* Sidebar */}
         <aside className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
           <nav className="p-4 space-y-2 flex-1">
-            <button
-              onClick={() => setActiveTab('system')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded text-sm transition-all ${activeTab === 'system' ? 'bg-gray-800 text-white border-l-2 border-green-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
-            >
-              <CpuChipIcon className="w-5 h-5" /> Sistema & Módulos
-            </button>
-            <button
-              onClick={() => setActiveTab('vault')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded text-sm transition-all ${activeTab === 'vault' ? 'bg-gray-800 text-white border-l-2 border-green-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
-            >
-              <LockClosedIcon className="w-5 h-5" /> Cofre de Credenciais
-            </button>
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded text-sm transition-all ${activeTab === 'users' ? 'bg-gray-800 text-white border-l-2 border-green-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
-            >
-              <UsersIcon className="w-5 h-5" /> Gestão de Usuários
-            </button>
-            <button
-              onClick={() => setActiveTab('logs')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded text-sm transition-all ${activeTab === 'logs' ? 'bg-gray-800 text-white border-l-2 border-green-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
-            >
-              <CommandLineIcon className="w-5 h-5" /> Logs & Diagnóstico
-            </button>
+            <NavButton icon={ChartBarIcon} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
+            <NavButton icon={UsersIcon} label="Clientes" active={activeTab === 'clients'} onClick={() => setActiveTab('clients')} />
+            <NavButton icon={BellIcon} label="Notificações" active={activeTab === 'notifications'} onClick={() => setActiveTab('notifications')} badge={activeNotifications} />
+            <NavButton icon={KeyIcon} label="API Keys" active={activeTab === 'apikeys'} onClick={() => setActiveTab('apikeys')} />
+            <NavButton icon={CpuChipIcon} label="Sistema" active={activeTab === 'system'} onClick={() => setActiveTab('system')} />
+            <NavButton icon={CommandLineIcon} label="Logs" active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} />
           </nav>
 
           <div className="p-4 border-t border-gray-800">
@@ -226,63 +339,298 @@ const AdminConsole: React.FC = () => {
         <main className="flex-1 overflow-y-auto bg-black p-8">
           {loadingData ? (
             <div className="flex items-center justify-center h-full text-green-500">
-              <LoadingSpinner className="w-8 h-8 mr-2" /> Carregando dados da nave...
+              <LoadingSpinner className="w-8 h-8 mr-2" /> Carregando dados...
             </div>
           ) : (
-            <div className="max-w-6xl mx-auto space-y-8 animate-fade-in">
+            <div className="max-w-7xl mx-auto space-y-8">
+
+              {/* DASHBOARD TAB */}
+              {activeTab === 'dashboard' && (
+                <>
+                  <h2 className="text-2xl font-bold text-white mb-6">📊 Dashboard</h2>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <MetricCard title="Total de Clientes" value={users.length} icon={UsersIcon} color="blue" />
+                    <MetricCard title="Clientes Ativos" value={activeUsers} icon={CheckCircleIcon} color="green" />
+                    <MetricCard title="Clientes Bloqueados" value={blockedUsers} icon={NoSymbolIcon} color="red" />
+                    <MetricCard title="Planos Premium" value={premiumUsers} icon={ShieldCheckIcon} color="purple" />
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                    <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
+                      <h3 className="text-sm uppercase font-bold text-gray-400 mb-4">Atividade Recente</h3>
+                      <div className="space-y-3">
+                        {logs.slice(0, 5).map(log => (
+                          <div key={log.id} className="flex items-start gap-3 text-xs">
+                            <span className={`px-2 py-0.5 rounded font-bold ${log.level === 'INFO' ? 'bg-blue-900/20 text-blue-400' :
+                                log.level === 'WARN' ? 'bg-yellow-900/20 text-yellow-400' :
+                                  'bg-red-900/20 text-red-400'
+                              }`}>{log.level}</span>
+                            <span className="text-gray-400 flex-1">{log.message}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
+                      <h3 className="text-sm uppercase font-bold text-gray-400 mb-4">Notificações Ativas</h3>
+                      <div className="space-y-3">
+                        {notifications.filter(n => n.isActive).slice(0, 5).map(notif => (
+                          <div key={notif.id} className="bg-black p-3 rounded border border-gray-800">
+                            <p className="text-sm font-bold text-white">{notif.title}</p>
+                            <p className="text-xs text-gray-500 mt-1">{notif.message.substring(0, 60)}...</p>
+                          </div>
+                        ))}
+                        {activeNotifications === 0 && (
+                          <p className="text-xs text-gray-600 text-center py-4">Nenhuma notificação ativa</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* CLIENTS TAB */}
+              {activeTab === 'clients' && (
+                <>
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-white">👥 Gerenciamento de Clientes</h2>
+                    <button
+                      onClick={() => setShowClientModal(true)}
+                      className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition-colors"
+                    >
+                      <PlusIcon className="w-5 h-5" /> Adicionar Cliente
+                    </button>
+                  </div>
+
+                  <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+                    <table className="w-full text-left text-sm text-gray-400">
+                      <thead className="bg-black text-gray-500 uppercase text-xs font-bold">
+                        <tr>
+                          <th className="px-6 py-4">Cliente</th>
+                          <th className="px-6 py-4">Plano</th>
+                          <th className="px-6 py-4">Status</th>
+                          <th className="px-6 py-4">API</th>
+                          <th className="px-6 py-4 text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800">
+                        {users.map(user => {
+                          const userConfig = clientConfigs.find(c => c.userId === user.id);
+                          return (
+                            <tr key={user.id} className="hover:bg-gray-800/50 transition-colors">
+                              <td className="px-6 py-4">
+                                <div className="font-medium text-white">{user.name}</div>
+                                <div className="text-xs text-gray-600">{user.email}</div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${user.plan === 'premium'
+                                    ? 'border-purple-900 text-purple-400 bg-purple-900/10'
+                                    : 'border-gray-700 text-gray-500'
+                                  }`}>
+                                  {user.plan}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={`flex items-center gap-1.5 text-xs ${user.status === 'active' ? 'text-green-400' : 'text-red-400'
+                                  }`}>
+                                  <div className={`w-1.5 h-1.5 rounded-full ${user.status === 'active' ? 'bg-green-400' : 'bg-red-400'
+                                    }`}></div>
+                                  {user.status}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <button
+                                  onClick={() => handleToggleClientApi(user.id, userConfig?.apiAccess.enabled || false)}
+                                  className={`px-2 py-1 rounded text-xs font-bold ${userConfig?.apiAccess.enabled
+                                      ? 'bg-green-900/20 text-green-400 border border-green-900'
+                                      : 'bg-red-900/20 text-red-400 border border-red-900'
+                                    }`}
+                                >
+                                  {userConfig?.apiAccess.enabled ? 'Liberada' : 'Bloqueada'}
+                                </button>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => openClientConfig(user.id)}
+                                    className="p-1.5 bg-blue-900/20 hover:bg-blue-900/40 text-blue-400 rounded transition-colors"
+                                    title="Configurar Módulos"
+                                  >
+                                    <CpuChipIcon className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleForceLogout(user.id, user.email)}
+                                    className="p-1.5 bg-yellow-900/20 hover:bg-yellow-900/40 text-yellow-400 rounded transition-colors"
+                                    title="Desconectar"
+                                  >
+                                    <ArrowRightStartOnRectangleIcon className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleBlockUser(user.id, user.status)}
+                                    className="p-1.5 bg-orange-900/20 hover:bg-orange-900/40 text-orange-400 rounded transition-colors"
+                                    title={user.status === 'blocked' ? 'Desbloquear' : 'Bloquear'}
+                                  >
+                                    {user.status === 'blocked' ? <HandRaisedIcon className="w-4 h-4" /> : <NoSymbolIcon className="w-4 h-4" />}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteClient(user.id, user.email)}
+                                    className="p-1.5 bg-red-900/20 hover:bg-red-900/40 text-red-400 rounded transition-colors"
+                                    title="Deletar"
+                                  >
+                                    <TrashIcon className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+
+              {/* NOTIFICATIONS TAB */}
+              {activeTab === 'notifications' && (
+                <>
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-white">🔔 Sistema de Notificações</h2>
+                    <button
+                      onClick={() => setShowNotificationModal(true)}
+                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors"
+                    >
+                      <MegaphoneIcon className="w-5 h-5" /> Criar Notificação
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    {notifications.map(notif => (
+                      <div key={notif.id} className={`bg-gray-900 border rounded-lg p-6 ${notif.isActive ? 'border-green-800' : 'border-gray-800 opacity-50'
+                        }`}>
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="text-lg font-bold text-white">{notif.title}</h3>
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold ${notif.type === 'info' ? 'bg-blue-900/20 text-blue-400' :
+                                  notif.type === 'warning' ? 'bg-yellow-900/20 text-yellow-400' :
+                                    notif.type === 'success' ? 'bg-green-900/20 text-green-400' :
+                                      'bg-purple-900/20 text-purple-400'
+                                }`}>
+                                {notif.type}
+                              </span>
+                              {notif.isActive && (
+                                <span className="px-2 py-0.5 rounded text-xs font-bold bg-green-900/20 text-green-400">
+                                  ATIVA
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-gray-400 mb-3">{notif.message}</p>
+                            <div className="flex gap-4 text-xs text-gray-600">
+                              <span>Criada: {new Date(notif.createdAt).toLocaleString()}</span>
+                              {notif.expiresAt && <span>Expira: {new Date(notif.expiresAt).toLocaleString()}</span>}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleToggleNotification(notif.id)}
+                              className={`px-3 py-1.5 rounded text-xs font-bold ${notif.isActive
+                                  ? 'bg-yellow-900/20 text-yellow-400 hover:bg-yellow-900/40'
+                                  : 'bg-green-900/20 text-green-400 hover:bg-green-900/40'
+                                }`}
+                            >
+                              {notif.isActive ? 'Desativar' : 'Ativar'}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteNotification(notif.id)}
+                              className="px-3 py-1.5 bg-red-900/20 hover:bg-red-900/40 text-red-400 rounded text-xs font-bold"
+                            >
+                              Deletar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* API KEYS TAB */}
+              {activeTab === 'apikeys' && (
+                <>
+                  <h2 className="text-2xl font-bold text-white mb-6">🔑 Gerenciamento de API Keys</h2>
+                  <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
+                    <p className="text-gray-400 mb-4">Visualize e gerencie as chaves API dos clientes.</p>
+                    <div className="space-y-4">
+                      {clientConfigs.map(config => {
+                        const user = users.find(u => u.id === config.userId);
+                        return (
+                          <div key={config.userId} className="bg-black p-4 rounded border border-gray-800 flex items-center justify-between">
+                            <div>
+                              <p className="font-bold text-white">{user?.name || 'Unknown'}</p>
+                              <p className="text-xs text-gray-600">Rate Limit: {config.apiAccess.rateLimit} req/min</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`px-2 py-1 rounded text-xs font-bold ${config.apiAccess.geminiEnabled
+                                  ? 'bg-green-900/20 text-green-400'
+                                  : 'bg-gray-800 text-gray-500'
+                                }`}>
+                                Gemini: {config.apiAccess.geminiEnabled ? 'ON' : 'OFF'}
+                              </span>
+                              <button className="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-white rounded text-xs">
+                                Testar
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* SYSTEM TAB */}
               {activeTab === 'system' && config && (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="col-span-2 bg-gray-900 border border-gray-800 rounded-lg p-6">
+                  <h2 className="text-2xl font-bold text-white mb-6">⚙️ Configurações do Sistema</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
                       <h3 className="text-sm uppercase font-bold text-gray-400 mb-6 border-b border-gray-800 pb-2 flex items-center gap-2">
-                        <PowerIcon className="w-4 h-4" /> Controle de Módulos (Runtime Override)
+                        <PowerIcon className="w-4 h-4" /> Controle de Módulos Globais
                       </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4">
                         {Object.entries(config.modules).map(([key, isEnabled]) => (
-                          <div key={key} className="flex items-center justify-between bg-black p-4 rounded border border-gray-800 hover:border-gray-700 transition-colors">
+                          <div key={key} className="flex items-center justify-between bg-black p-4 rounded border border-gray-800">
                             <span className="text-sm font-medium text-gray-300">{key}</span>
                             <button
                               onClick={() => toggleModule(key)}
-                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isEnabled ? 'bg-green-600' : 'bg-gray-700'}`}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isEnabled ? 'bg-green-600' : 'bg-gray-700'
+                                }`}
                             >
-                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out ${isEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ${isEnabled ? 'translate-x-6' : 'translate-x-1'
+                                }`} />
                             </button>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 flex flex-col justify-between">
-                      <div>
-                        <h3 className="text-sm uppercase font-bold text-gray-400 mb-4 flex items-center gap-2">
-                          <ServerIcon className="w-4 h-4" /> Status da Infraestrutura
-                        </h3>
-                        <div className="space-y-4">
-                          <div>
-                            <div className="flex justify-between text-xs mb-1 text-gray-500">
-                              <span>API Rate Limit</span>
-                              <span>34%</span>
-                            </div>
-                            <div className="w-full bg-gray-800 rounded-full h-1.5">
-                              <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: '34%' }}></div>
-                            </div>
-                          </div>
-                          <div>
-                            <div className="flex justify-between text-xs mb-1 text-gray-500">
-                              <span>Database Storage (Mock)</span>
-                              <span>12%</span>
-                            </div>
-                            <div className="w-full bg-gray-800 rounded-full h-1.5">
-                              <div className="bg-green-500 h-1.5 rounded-full" style={{ width: '12%' }}></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-6 pt-6 border-t border-gray-800">
-                        <button onClick={handleBackup} className="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white py-2 rounded text-xs uppercase tracking-wider transition-colors border border-gray-700">
-                          <ArchiveBoxIcon className="w-4 h-4" /> Executar Backup Manual
+                    <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
+                      <h3 className="text-sm uppercase font-bold text-gray-400 mb-4 flex items-center gap-2">
+                        <ServerIcon className="w-4 h-4" /> Ações do Sistema
+                      </h3>
+                      <div className="space-y-3">
+                        <button
+                          onClick={handleBackup}
+                          className="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white py-3 rounded transition-colors"
+                        >
+                          <ArchiveBoxIcon className="w-5 h-5" /> Executar Backup Manual
+                        </button>
+                        <button
+                          onClick={refreshData}
+                          className="w-full flex items-center justify-center gap-2 bg-blue-900/20 hover:bg-blue-900/40 text-blue-400 py-3 rounded transition-colors border border-blue-900"
+                        >
+                          <ArrowPathIcon className="w-5 h-5" /> Recarregar Dados
                         </button>
                       </div>
                     </div>
@@ -290,131 +638,254 @@ const AdminConsole: React.FC = () => {
                 </>
               )}
 
-              {/* VAULT TAB */}
-              {activeTab === 'vault' && (
-                <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <h3 className="text-xl font-bold text-white mb-1">Cofre de Credenciais</h3>
-                      <p className="text-xs text-gray-500">Chaves são criptografadas (AES-256) e nunca exibidas em texto plano.</p>
-                    </div>
-                    <div className="bg-green-900/20 text-green-400 px-3 py-1 rounded text-xs border border-green-900">
-                      Criptografia Ativa
-                    </div>
+              {/* LOGS TAB */}
+              {activeTab === 'logs' && (
+                <>
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-white">📋 Logs do Sistema</h2>
+                    <button
+                      onClick={refreshData}
+                      className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded transition-colors"
+                    >
+                      <ArrowPathIcon className="w-5 h-5" /> Atualizar
+                    </button>
                   </div>
-
-                  <div className="space-y-4">
-                    {[
-                      { name: 'Google Gemini API (Master)', status: 'active', lastSync: '2 min ago' },
-                      { name: 'External Auth Service', status: 'active', lastSync: '1 hour ago' },
-                      { name: 'SendGrid Email API', status: 'inactive', lastSync: 'never' }
-                    ].map((cred, idx) => (
-                      <div key={idx} className="bg-black p-4 rounded border border-gray-800 flex items-center justify-between group hover:border-gray-600 transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-2 h-2 rounded-full ${cred.status === 'active' ? 'bg-green-500 shadow-[0_0_8px_lime]' : 'bg-gray-600'}`}></div>
-                          <div>
-                            <p className="font-bold text-sm text-gray-200">{cred.name}</p>
-                            <p className="text-[10px] text-gray-600 font-mono">HASH: ************a8f9 • Sync: {cred.lastSync}</p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
-                          <button className="px-3 py-1 bg-gray-800 text-xs text-white rounded hover:bg-gray-700">Testar</button>
-                          <button className="px-3 py-1 bg-gray-800 text-xs text-white rounded hover:bg-gray-700">Rotacionar</button>
-                        </div>
+                  <div className="bg-black border border-gray-800 rounded-lg p-4 font-mono text-xs h-[600px] overflow-y-auto">
+                    {logs.map((log) => (
+                      <div key={log.id} className="mb-2 flex gap-3 hover:bg-gray-900/50 p-2 rounded">
+                        <span className="text-gray-600 shrink-0 w-36">{new Date(log.timestamp).toLocaleString()}</span>
+                        <span className={`shrink-0 w-16 font-bold ${log.level === 'INFO' ? 'text-blue-400' :
+                            log.level === 'WARN' ? 'text-yellow-400' :
+                              log.level === 'ERROR' ? 'text-red-500' :
+                                'text-purple-400'
+                          }`}>
+                          [{log.level}]
+                        </span>
+                        <span className="text-gray-500 shrink-0 w-28 uppercase text-[10px]">[{log.module}]</span>
+                        <span className="text-gray-300">{log.message}</span>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {/* USERS TAB */}
-              {activeTab === 'users' && (
-                <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
-                  <table className="w-full text-left text-sm text-gray-400">
-                    <thead className="bg-black text-gray-500 uppercase text-xs font-bold">
-                      <tr>
-                        <th className="px-6 py-4">Usuário</th>
-                        <th className="px-6 py-4">Plano</th>
-                        <th className="px-6 py-4">Status</th>
-                        <th className="px-6 py-4 text-right">Ações de Segurança</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800">
-                      {users.map(user => (
-                        <tr key={user.id} className="hover:bg-gray-800/50 transition-colors">
-                          <td className="px-6 py-4">
-                            <div className="font-medium text-white">{user.name}</div>
-                            <div className="text-xs text-gray-600">{user.email}</div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${user.plan === 'premium' ? 'border-purple-900 text-purple-400 bg-purple-900/10' : 'border-gray-700 text-gray-500'}`}>
-                              {user.plan}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`flex items-center gap-1.5 text-xs ${user.status === 'active' ? 'text-green-400' : 'text-red-400'}`}>
-                              <div className={`w-1.5 h-1.5 rounded-full ${user.status === 'active' ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                              {user.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => handleForceLogout(user.id, user.email)}
-                                className="flex items-center gap-1 px-2 py-1 bg-red-900/10 hover:bg-red-900/30 text-red-400 border border-red-900/30 rounded transition-colors text-xs"
-                                title="Forçar Logout / Desconectar"
-                              >
-                                <ArrowRightStartOnRectangleIcon className="w-4 h-4" /> Desconectar
-                              </button>
-
-                              <button
-                                onClick={() => handleBlockUser(user.id, user.status)}
-                                className={`flex items-center gap-1 px-2 py-1 rounded transition-colors text-xs border ${user.status === 'blocked' ? 'bg-green-900/10 hover:bg-green-900/30 text-green-400 border-green-900/30' : 'bg-gray-800 hover:bg-gray-700 text-gray-400 border-gray-700'}`}
-                                title={user.status === 'blocked' ? "Desbloquear Acesso" : "Bloquear Acesso"}
-                              >
-                                {user.status === 'blocked' ? (
-                                  <> <HandRaisedIcon className="w-4 h-4" /> Desbloquear </>
-                                ) : (
-                                  <> <NoSymbolIcon className="w-4 h-4" /> Bloquear </>
-                                )}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* LOGS TAB */}
-              {activeTab === 'logs' && (
-                <div className="bg-black border border-gray-800 rounded-lg p-4 font-mono text-xs h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
-                  <div className="flex justify-between items-center mb-4 px-2">
-                    <h4 className="text-gray-500 uppercase tracking-widest text-[10px]">Registro de Auditoria do Sistema</h4>
-                    <button onClick={refreshData} className="text-green-500 hover:text-green-400">
-                      <ArrowPathIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                  {logs.map((log) => (
-                    <div key={log.id} className="mb-2 flex gap-3 hover:bg-gray-900/50 p-1 rounded">
-                      <span className="text-gray-600 shrink-0 w-32">{new Date(log.timestamp).toLocaleString()}</span>
-                      <span className={`shrink-0 w-16 font-bold ${log.level === 'INFO' ? 'text-blue-400' : log.level === 'WARN' ? 'text-yellow-400' : 'text-red-500'}`}>
-                        [{log.level}]
-                      </span>
-                      <span className="text-gray-500 shrink-0 w-24 uppercase tracking-tighter">[{log.module}]</span>
-                      <span className="text-gray-300">{log.message}</span>
-                    </div>
-                  ))}
-                </div>
+                </>
               )}
 
             </div>
           )}
         </main>
       </div>
+
+      {/* CLIENT MODAL */}
+      {showClientModal && (
+        <Modal title="Adicionar Novo Cliente" onClose={() => setShowClientModal(false)}>
+          <form onSubmit={handleCreateClient} className="space-y-4">
+            <Input
+              label="Nome Completo"
+              value={clientForm.name}
+              onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })}
+              required
+            />
+            <Input
+              label="Email"
+              type="email"
+              value={clientForm.email}
+              onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })}
+              required
+            />
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Plano</label>
+              <select
+                value={clientForm.plan}
+                onChange={(e) => setClientForm({ ...clientForm, plan: e.target.value as 'free' | 'premium' })}
+                className="w-full bg-gray-800 border border-gray-700 text-white p-2 rounded"
+              >
+                <option value="free">Free</option>
+                <option value="premium">Premium</option>
+              </select>
+            </div>
+            <Input
+              label="Nome do Negócio"
+              value={clientForm.businessName}
+              onChange={(e) => setClientForm({ ...clientForm, businessName: e.target.value })}
+            />
+            <Input
+              label="Indústria"
+              value={clientForm.industry}
+              onChange={(e) => setClientForm({ ...clientForm, industry: e.target.value })}
+            />
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowClientModal(false)}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded transition-colors"
+              >
+                Criar Cliente
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* NOTIFICATION MODAL */}
+      {showNotificationModal && (
+        <Modal title="Criar Nova Notificação" onClose={() => setShowNotificationModal(false)}>
+          <form onSubmit={handleCreateNotification} className="space-y-4">
+            <Input
+              label="Título"
+              value={notificationForm.title}
+              onChange={(e) => setNotificationForm({ ...notificationForm, title: e.target.value })}
+              required
+              placeholder="Ex: Nova Funcionalidade Disponível!"
+            />
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Mensagem</label>
+              <textarea
+                value={notificationForm.message}
+                onChange={(e) => setNotificationForm({ ...notificationForm, message: e.target.value })}
+                required
+                rows={4}
+                placeholder="Digite a mensagem que será exibida para todos os usuários..."
+                className="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Tipo</label>
+              <select
+                value={notificationForm.type}
+                onChange={(e) => setNotificationForm({ ...notificationForm, type: e.target.value as any })}
+                className="w-full bg-gray-800 border border-gray-700 text-white p-2 rounded"
+              >
+                <option value="info">Info</option>
+                <option value="warning">Warning</option>
+                <option value="success">Success</option>
+                <option value="announcement">Announcement</option>
+              </select>
+            </div>
+            <Input
+              label="Data de Expiração (Opcional)"
+              type="datetime-local"
+              value={notificationForm.expiresAt}
+              onChange={(e) => setNotificationForm({ ...notificationForm, expiresAt: e.target.value })}
+            />
+            <div className="bg-blue-900/20 border border-blue-900 rounded p-4">
+              <p className="text-xs text-blue-400 font-bold mb-2">PREVIEW:</p>
+              <div className="bg-black p-3 rounded">
+                <p className="text-sm font-bold text-white">{notificationForm.title || 'Título da Notificação'}</p>
+                <p className="text-xs text-gray-400 mt-1">{notificationForm.message || 'Mensagem da notificação...'}</p>
+              </div>
+            </div>
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowNotificationModal(false)}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded transition-colors font-bold"
+              >
+                📢 Enviar para Todos
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* CLIENT CONFIG MODAL */}
+      {selectedClientConfig && (
+        <Modal
+          title={`Configurar Módulos - ${users.find(u => u.id === selectedClientConfig.userId)?.name}`}
+          onClose={() => setSelectedClientConfig(null)}
+        >
+          <div className="space-y-4">
+            <div className="bg-blue-900/20 border border-blue-900 rounded p-4 mb-4">
+              <p className="text-xs text-blue-400">
+                Habilite ou desabilite módulos específicos para este cliente.
+              </p>
+            </div>
+            {Object.entries(selectedClientConfig.modules).map(([moduleName, isEnabled]) => (
+              <div key={moduleName} className="flex items-center justify-between bg-gray-800 p-4 rounded">
+                <span className="text-sm font-medium text-white">{moduleName}</span>
+                <button
+                  onClick={() => handleToggleClientModule(selectedClientConfig.userId, moduleName, isEnabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isEnabled ? 'bg-green-600' : 'bg-gray-700'
+                    }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ${isEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => setSelectedClientConfig(null)}
+              className="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded transition-colors mt-4"
+            >
+              Fechar
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
+
+// Helper Components
+const NavButton: React.FC<{ icon: any; label: string; active: boolean; onClick: () => void; badge?: number }> = ({ icon: Icon, label, active, onClick, badge }) => (
+  <button
+    onClick={onClick}
+    className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded text-sm transition-all ${active ? 'bg-gray-800 text-white border-l-2 border-green-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
+      }`}
+  >
+    <div className="flex items-center gap-3">
+      <Icon className="w-5 h-5" />
+      {label}
+    </div>
+    {badge !== undefined && badge > 0 && (
+      <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{badge}</span>
+    )}
+  </button>
+);
+
+const MetricCard: React.FC<{ title: string; value: number; icon: any; color: string }> = ({ title, value, icon: Icon, color }) => {
+  const colorClasses = {
+    blue: 'bg-blue-900/20 border-blue-900 text-blue-400',
+    green: 'bg-green-900/20 border-green-900 text-green-400',
+    red: 'bg-red-900/20 border-red-900 text-red-400',
+    purple: 'bg-purple-900/20 border-purple-900 text-purple-400',
+  };
+
+  return (
+    <div className={`${colorClasses[color as keyof typeof colorClasses]} border rounded-lg p-6`}>
+      <div className="flex items-center justify-between mb-4">
+        <Icon className="w-8 h-8" />
+        <span className="text-3xl font-bold">{value}</span>
+      </div>
+      <p className="text-sm uppercase tracking-wider opacity-80">{title}</p>
+    </div>
+  );
+};
+
+const Modal: React.FC<{ title: string; onClose: () => void; children: React.ReactNode }> = ({ title, onClose, children }) => (
+  <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+    <div className="bg-gray-900 border border-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="flex items-center justify-between p-6 border-b border-gray-800">
+        <h3 className="text-xl font-bold text-white">{title}</h3>
+        <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+          <XMarkIcon className="w-6 h-6" />
+        </button>
+      </div>
+      <div className="p-6">
+        {children}
+      </div>
+    </div>
+  </div>
+);
 
 export default AdminConsole;

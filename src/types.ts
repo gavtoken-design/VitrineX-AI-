@@ -163,6 +163,66 @@ export interface AdminConfig {
   };
 }
 
+// Client Configuration (per-user settings controlled by admin)
+export interface ClientConfig {
+  userId: string;
+  apiAccess: {
+    enabled: boolean;
+    geminiEnabled: boolean;
+    rateLimit?: number; // requests per minute
+    lastApiCall?: string;
+  };
+  modules: {
+    [key: string]: boolean; // Which modules this client can access
+  };
+  metadata: {
+    notes?: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
+// App Notification System
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'warning' | 'success' | 'announcement';
+  createdAt: string;
+  createdBy: string; // Admin user ID
+  expiresAt?: string; // Optional expiration
+  isActive: boolean;
+  targetUsers?: string[]; // Empty = all users
+}
+
+// File Distribution System
+export interface FileDistribution {
+  id: string;
+  fileName: string;
+  fileType: string; // pdf, zip, txt, doc, ebook, etc.
+  fileSize: number; // in bytes
+  fileUrl: string; // Base64 or URL
+  description?: string;
+  uploadedBy: string; // Admin user ID
+  uploadedAt: string;
+  targetType: 'all' | 'specific'; // All users or specific users
+  targetUsers?: string[]; // User IDs if specific
+  targetIPs?: string[]; // IP addresses if specific
+  expiresAt?: string; // Optional expiration
+  isActive: boolean;
+  downloadCount: number;
+  tags?: string[];
+}
+
+export interface FileDownloadLog {
+  id: string;
+  fileId: string;
+  userId: string;
+  userIP: string;
+  downloadedAt: string;
+  userAgent?: string;
+}
+
 // Extend Window interface for Electron and AI Studio
 declare global {
   // FIX: Define AIStudio and IElectronAPI interfaces explicitly inside global scope to avoid module conflicts
