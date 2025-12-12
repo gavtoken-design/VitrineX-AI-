@@ -5,7 +5,9 @@ import { MOCK_API_DELAY, DEFAULT_BUSINESS_PROFILE } from '../constants';
 // Mock Database Service
 // This service simulates a backend database using local memory.
 
-const mockDb = {
+const DB_STORAGE_KEY = 'vitrinex_mock_db';
+
+const defaultMockDb = {
     users: {
         'mock-user-123': {
             id: 'mock-user-123',
@@ -22,10 +24,46 @@ const mockDb = {
     schedule: {} as { [id: string]: ScheduleEntry },
 };
 
+// Define the DB structure type
+type MockDbType = {
+    users: { [id: string]: UserProfile };
+    posts: { [id: string]: Post };
+    ads: { [id: string]: Ad };
+    campaigns: { [id: string]: Campaign };
+    trends: { [id: string]: Trend };
+    library: { [id: string]: LibraryItem };
+    schedule: { [id: string]: ScheduleEntry };
+};
+
+function loadDb(): MockDbType {
+    try {
+        const stored = localStorage.getItem(DB_STORAGE_KEY);
+        if (stored) {
+            // Need to cast the parsed object to MockDbType as JSON.parse returns any
+            return JSON.parse(stored) as MockDbType;
+        }
+    } catch (e) {
+        console.warn('Failed to load mock DB from local storage', e);
+    }
+    return defaultMockDb;
+}
+
+const mockDb = loadDb();
+
+function saveDb() {
+    try {
+        localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(mockDb));
+    } catch (e) {
+        console.warn('Failed to save mock DB to local storage', e);
+    }
+}
+
 // Generic mock function to simulate DB operations
 async function mockDbOperation<T>(operation: () => T | Promise<T>): Promise<T> {
     await new Promise(resolve => setTimeout(resolve, MOCK_API_DELAY));
-    return await operation();
+    const result = await operation();
+    saveDb();
+    return result;
 }
 
 // --- User Profile Operations ---

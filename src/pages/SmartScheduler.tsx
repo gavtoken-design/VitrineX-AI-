@@ -207,7 +207,35 @@ const SmartScheduler: React.FC = () => {
             {scheduling ? 'Agendando...' : 'Agendar'}
           </Button>
           <Button
-            onClick={() => addToast({ type: 'info', message: 'Publicar Agora não implementado. (Iria acionar o autopost do backend imediatamente)' })}
+            onClick={() => {
+              if (!newSchedulePlatform || !newScheduleContentId) {
+                addToast({ type: 'warning', message: 'Selecione conteúdo e plataforma para publicar.' });
+                return;
+              }
+              const now = new Date();
+              // Create entry with current time and status 'published'
+              const newEntry: ScheduleEntry = {
+                id: `schedule-${Date.now()}`,
+                userId: userId,
+                datetime: now.toISOString(),
+                platform: newSchedulePlatform,
+                contentId: newScheduleContentId,
+                contentType: newScheduleContentType,
+                status: 'published',
+              };
+
+              saveScheduleEntry(newEntry).then((saved) => {
+                setScheduledItems((prev) => [...prev, saved].sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime()));
+                addToast({ type: 'success', message: 'Conteúdo publicado com sucesso!' });
+                // Reset form
+                setNewSchedulePlatform('');
+                setNewScheduleDate('');
+                setNewScheduleTime('');
+              }).catch(err => {
+                addToast({ type: 'error', message: 'Erro ao publicar.' });
+                console.error(err);
+              });
+            }}
             variant="secondary"
             className="w-full md:w-auto"
             disabled={!newScheduleContentId || !newSchedulePlatform}
