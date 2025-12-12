@@ -24,3 +24,22 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Deploy files
+winscp.log
+*.txt
+upload*.ps1
+deploy*.ps1
+temp_*
+
+# Documentation (keep only README.md)
+CHECKLIST_FINAL.md
+DEPLOYMENT_HOSTINGER.md
+DEPLOY_CREDENCIAIS.md
+DEPLOY_FINAL.md
+DEPLOY_PUTTY_SFTP.md
+RESUMO_FINAL.md
+SOLUCAO_MOTOR_IA.md
+STATUS_FINAL.md
+RELEASE_INSTRUCTIONS.md
+validar_chave.html

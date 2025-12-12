@@ -1,53 +1,96 @@
-# Script de Deploy Rápido - VitrineX AI (PowerShell)
-# Execute este script para preparar o projeto para deploy
+# Deploy Automatizado - VitrineX AI
+# Versao Simplificada
 
-Write-Host "🚀 Iniciando preparação para deploy..." -ForegroundColor Cyan
+$Host.UI.RawUI.WindowTitle = "Deploy VitrineX AI"
+
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "  DEPLOY AUTOMATIZADO - VitrineX AI    " -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 1. Limpar builds anteriores
-Write-Host "📦 Limpando builds anteriores..." -ForegroundColor Yellow
-if (Test-Path "dist") {
-    Remove-Item -Recurse -Force "dist"
-    Write-Host "✓ Pasta dist removida" -ForegroundColor Green
+# Configuracoes
+$SSH_HOST = "82.112.247.163"
+$SSH_PORT = "65002"
+$SSH_USER = "u786088869"
+$SSH_PASS = "VitrineX.AI2025"
+$REMOTE_PATH = "/home/u786088869/domains/vitrinex.online/public_html"
+$LOCAL_PATH = "dist"
+
+# Verificar pasta dist
+Write-Host "[1/3] Verificando arquivos locais..." -ForegroundColor Yellow
+
+if (-not (Test-Path $LOCAL_PATH)) {
+    Write-Host ""
+    Write-Host "ERRO: Pasta dist nao encontrada!" -ForegroundColor Red
+    Write-Host "Execute: npm run build" -ForegroundColor Yellow
+    Write-Host ""
+    exit 1
 }
 
-# 2. Verificar dependências
+$fileCount = (Get-ChildItem -Path $LOCAL_PATH -Recurse -File).Count
+Write-Host "      Arquivos encontrados: $fileCount" -ForegroundColor Green
 Write-Host ""
-Write-Host "📥 Verificando dependências..." -ForegroundColor Yellow
-if (-not (Test-Path "node_modules")) {
-    Write-Host "Instalando dependências..." -ForegroundColor Yellow
-    npm install
-} else {
-    Write-Host "✓ Dependências já instaladas" -ForegroundColor Green
+
+# Verificar PSCP
+Write-Host "[2/3] Verificando PSCP..." -ForegroundColor Yellow
+
+$pscpPath = "C:\Program Files\PuTTY\pscp.exe"
+if (-not (Test-Path $pscpPath)) {
+    $pscpPath = "C:\Program Files (x86)\PuTTY\pscp.exe"
 }
 
-# 3. Gerar build de produção
-Write-Host ""
-Write-Host "🔨 Gerando build de produção..." -ForegroundColor Yellow
-npm run build
+if (-not (Test-Path $pscpPath)) {
+    Write-Host ""
+    Write-Host "ERRO: PSCP nao encontrado!" -ForegroundColor Red
+    Write-Host "Instale o PuTTY primeiro." -ForegroundColor Yellow
+    Write-Host ""
+    exit 1
+}
 
-# 4. Verificar se o build foi criado
+Write-Host "      PSCP encontrado!" -ForegroundColor Green
 Write-Host ""
-if (Test-Path "dist") {
-    Write-Host "✅ Build gerado com sucesso!" -ForegroundColor Green
+
+# Upload
+Write-Host "[3/3] Fazendo upload..." -ForegroundColor Yellow
+Write-Host "      Destino: vitrinex.online" -ForegroundColor Gray
+Write-Host "      Isso pode levar alguns minutos..." -ForegroundColor Gray
+Write-Host ""
+
+# Executar PSCP
+$destino = "${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}/"
+
+try {
+    # Upload com PSCP
+    & $pscpPath -P $SSH_PORT -pw $SSH_PASS -r "$LOCAL_PATH\*" $destino 2>&1 | Out-Null
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Green
+        Write-Host "       DEPLOY CONCLUIDO!               " -ForegroundColor Green
+        Write-Host "========================================" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "Seu site esta no ar em:" -ForegroundColor Cyan
+        Write-Host "https://vitrinex.online" -ForegroundColor White
+        Write-Host ""
+        Write-Host "Proximos passos:" -ForegroundColor Yellow
+        Write-Host "1. Acesse o site" -ForegroundColor White
+        Write-Host "2. Teste o motor de IA" -ForegroundColor White
+        Write-Host "3. Instale como PWA" -ForegroundColor White
+        Write-Host ""
+    }
+    else {
+        throw "Erro no upload"
+    }
+    
+}
+catch {
     Write-Host ""
-    Write-Host "📁 Conteúdo da pasta dist:" -ForegroundColor Cyan
-    Get-ChildItem -Path "dist" -Recurse | Select-Object Name, Length, LastWriteTime | Format-Table -AutoSize
+    Write-Host "ERRO durante o upload!" -ForegroundColor Red
+    Write-Host "Detalhes: $_" -ForegroundColor Yellow
     Write-Host ""
-    $size = (Get-ChildItem -Path "dist" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
-    Write-Host "📊 Tamanho total: $([math]::Round($size, 2)) MB" -ForegroundColor Cyan
+    Write-Host "Tente usar WinSCP (interface grafica):" -ForegroundColor Cyan
+    Write-Host "https://winscp.net" -ForegroundColor White
     Write-Host ""
-    Write-Host "🎉 Pronto para deploy!" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "📤 Próximos passos:" -ForegroundColor Yellow
-    Write-Host "1. Acesse o Hostinger hPanel"
-    Write-Host "2. Vá para Gerenciador de Arquivos → public_html"
-    Write-Host "3. Delete tudo que estiver lá"
-    Write-Host "4. Faça upload de TODOS os arquivos da pasta 'dist/'"
-    Write-Host "5. Acesse seu domínio e teste!"
-    Write-Host ""
-    Write-Host "📚 Consulte DEPLOYMENT_HOSTINGER.md para mais detalhes" -ForegroundColor Cyan
-} else {
-    Write-Host "❌ Erro: Build não foi gerado" -ForegroundColor Red
-    Write-Host "Verifique os erros acima e tente novamente"
+    exit 1
 }
