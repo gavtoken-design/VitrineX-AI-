@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { generateSpeech, decode, decodeAudioData } from '../services/geminiService';
+import { generateSpeech, decode, decodeAudioData } from '../services/ai/geminiService';
 import { useToast } from '../contexts/ToastContext';
 import Button from './Button';
 import { SpeakerWaveIcon } from '@heroicons/react/24/outline';

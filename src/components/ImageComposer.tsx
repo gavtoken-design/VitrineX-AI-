@@ -6,7 +6,7 @@ import {
     COMPOSITION_PRESETS,
     CompositionConfig,
     ImageElement
-} from '../services/imageCompositionService';
+} from '../services/ai/imageCompositionService';
 import Button from './Button';
 import { useToast } from '../contexts/ToastContext';
 

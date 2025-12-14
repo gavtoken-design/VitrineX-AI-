@@ -1,6 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getPosts, getAds, getScheduleEntries, getTrends, getLibraryItems } from '../services/dbService';
+import { getPosts, getAds, getScheduleEntries, getTrends, getLibraryItems } from '../services/core/dbService';
 import { Post, Ad, ScheduleEntry, Trend, LibraryItem } from '../types';
 
 // Query Keys

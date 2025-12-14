@@ -1,6 +1,6 @@
 
 import { useState, useCallback } from 'react';
-import { mediaService, MediaImage, MediaVideo, MediaSearchResult } from '../services/mediaService';
+import { mediaService, MediaImage, MediaVideo, MediaSearchResult } from '../services/media/mediaService';
 import { MediaSearchFilters } from '../components/MediaSearch';
 
 export interface UseMediaLibraryOptions {

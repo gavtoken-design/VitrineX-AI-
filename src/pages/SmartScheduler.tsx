@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { getLibraryItems, getScheduleEntries, saveScheduleEntry, deleteScheduleEntry, updateScheduleEntry, getLibraryItem } from '../services/dbService';
+import { getLibraryItems, getScheduleEntries, saveScheduleEntry, deleteScheduleEntry, updateScheduleEntry, getLibraryItem } from '../services/core/dbService';
 import { ScheduleEntry, LibraryItem } from '../types';
 import { PlusIcon, TrashIcon, CalendarDaysIcon, CheckCircleIcon, XCircleIcon, ClockIcon, PencilIcon, EyeIcon, FunnelIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useToast } from '../contexts/ToastContext';

@@ -6,10 +6,10 @@ import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import SaveToLibraryButton from '../components/SaveToLibraryButton';
 import MediaActionsToolbar from '../components/MediaActionsToolbar';
-import { generateImage, editImage, generateVideo, analyzeImage } from '../services/geminiService';
+import { generateImage, editImage, generateVideo, analyzeImage } from '../services/ai/geminiService';
 import { overlayLogo } from '../services/imageUtils';
 import ImageComposer from '../components/ImageComposer'; // NEW
-import { getUserProfile } from '../services/dbService';
+import { getUserProfile } from '../services/core/dbService';
 import { downloadImage } from '../utils/mediaUtils';
 import {
   ArrowDownTrayIcon,

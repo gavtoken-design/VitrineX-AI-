@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BellIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { adminService } from '../services/adminService';
 import { AppNotification } from '../types';
-import { authService } from '../services/authService';
+import { authService } from '../services/core/authService';
 
 const NotificationBell: React.FC = () => {
     const [notifications, setNotifications] = useState<AppNotification[]>([]);

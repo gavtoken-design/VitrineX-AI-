@@ -6,13 +6,13 @@ import SaveToLibraryButton from '../components/SaveToLibraryButton';
 import LoadingSpinner from '../components/LoadingSpinner';
 import VoiceoverControl from '../components/VoiceoverControl';
 import MediaActionsToolbar from '../components/MediaActionsToolbar'; // NOVO
-import { generateText, generateImage } from '../services/geminiService';
-import { saveAd } from '../services/firestoreService';
+import { generateText, generateImage } from '../services/ai/geminiService';
+import { saveAd } from '../services/core/firestoreService';
 import { Ad, UserProfile } from '../types';
 import { GEMINI_PRO_MODEL, GEMINI_IMAGE_PRO_MODEL, PLACEHOLDER_IMAGE_BASE64 } from '../constants';
 import { Type } from '@google/genai';
 import { useToast } from '../contexts/ToastContext';
-import { getCurrentUser } from '../services/authService';
+import { getCurrentUser } from '../services/core/authService';
 
 type Platform = 'Instagram' | 'Facebook' | 'TikTok' | 'Google' | 'Pinterest';
 

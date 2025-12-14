@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { LibraryItem } from '../types';
-import { getLibraryItems, deleteLibraryItem, saveLibraryItem } from '../services/dbService';
+import { getLibraryItems, deleteLibraryItem, saveLibraryItem } from '../services/core/dbService';
 import { uploadFile } from '../services/cloudStorageService';
 import { PLACEHOLDER_IMAGE_BASE64 } from '../constants';
-import { createFileSearchStore, uploadFileToSearchStore } from '../services/geminiService';
+import { createFileSearchStore, uploadFileToSearchStore } from '../services/ai/geminiService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
 import Input from '../components/Input';

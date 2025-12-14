@@ -2,41 +2,30 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminService } from '../services/adminService';
 import { AdminLog, UserProfile, AdminConfig, ClientConfig, AppNotification, FileDistribution } from '../types';
-import { getGlobalUsageSummary, getAllUsageStats, GlobalUsageData, resetAllUsageStats } from '../services/usageTracker';
-import Button from '../components/Button';
+import { getGlobalUsageSummary, getAllUsageStats, GlobalUsageData, resetAllUsageStats } from '../services/core/usageTracker';
 import Input from '../components/Input';
 import LoadingSpinner from '../components/LoadingSpinner';
 import {
   ShieldCheckIcon,
-  ServerIcon,
   UsersIcon,
   CommandLineIcon,
   CpuChipIcon,
-  LockClosedIcon,
-  PowerIcon,
-  ArrowPathIcon,
-  CheckCircleIcon,
-  ArchiveBoxIcon,
-  NoSymbolIcon,
-  ArrowRightStartOnRectangleIcon,
-  HandRaisedIcon,
-  BellIcon,
-  PlusIcon,
-  PencilIcon,
-  TrashIcon,
-  ChartBarIcon,
   KeyIcon,
-  XMarkIcon,
-  MegaphoneIcon,
-  DocumentArrowUpIcon,
-  DocumentTextIcon,
-  ArrowDownTrayIcon,
-  EyeIcon,
+  BellIcon,
   FolderIcon,
-  BanknotesIcon,
-  SparklesIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 import { useToast } from '../contexts/ToastContext';
+
+// Components
+import { NavButton, Modal } from '../components/admin/Shared';
+import { DashboardTab } from '../components/admin/DashboardTab';
+import { ClientsTab } from '../components/admin/ClientsTab';
+import { NotificationsTab } from '../components/admin/NotificationsTab';
+import { FilesTab } from '../components/admin/FilesTab';
+import { ApiKeysTab } from '../components/admin/ApiKeysTab';
+import { SystemTab } from '../components/admin/SystemTab';
+import { LogsTab } from '../components/admin/LogsTab';
 
 type TabType = 'dashboard' | 'clients' | 'notifications' | 'files' | 'apikeys' | 'system' | 'logs';
 
@@ -61,8 +50,10 @@ const AdminConsole: React.FC = () => {
   const [showClientModal, setShowClientModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [showFileModal, setShowFileModal] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [editingClient, setEditingClient] = useState<UserProfile | null>(null);
   const [selectedClientConfig, setSelectedClientConfig] = useState<ClientConfig | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedFile, setSelectedFile] = useState<FileDistribution | null>(null);
 
   // Form States
@@ -131,8 +122,6 @@ const AdminConsole: React.FC = () => {
       setConfig(cfg);
       setLogs(lgs);
       setUsers(usrs);
-      setClientConfigs(configs);
-      setNotifications(notifs);
       setClientConfigs(configs);
       setNotifications(notifs);
       setFiles(fls);
@@ -235,6 +224,7 @@ const AdminConsole: React.FC = () => {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleToggleClientApi = async (userId: string, currentEnabled: boolean) => {
     await adminService.toggleClientApiAccess(userId, !currentEnabled);
     addToast({ type: 'info', message: `API ${!currentEnabled ? 'liberada' : 'bloqueada'}` });
@@ -368,12 +358,6 @@ const AdminConsole: React.FC = () => {
     alert(`Estatísticas de "${file.fileName}":\n\nTotal de Downloads: ${stats.totalDownloads}\nUsuários Únicos: ${stats.uniqueUsers}\nIPs Únicos: ${stats.uniqueIPs}\nÚltimo Download: ${stats.lastDownload ? new Date(stats.lastDownload).toLocaleString() : 'Nunca'}`);
   };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-  };
-
   const toggleUserSelection = (userId: string) => {
     setFileForm(prev => ({
       ...prev,
@@ -441,7 +425,7 @@ const AdminConsole: React.FC = () => {
         </div>
         <div className="flex items-center gap-4">
           <span className="text-xs text-green-500 flex items-center gap-1">
-            <CheckCircleIcon className="w-4 h-4" /> SISTEMA OPERACIONAL
+            <ShieldCheckIcon className="w-4 h-4" /> SISTEMA OPERACIONAL
           </span>
           <button
             onClick={() => { setIsAuthenticated(false); setPin(''); }}
@@ -484,540 +468,74 @@ const AdminConsole: React.FC = () => {
             </div>
           ) : (
             <div className="max-w-7xl mx-auto space-y-8">
-
-              {/* DASHBOARD TAB */}
               {activeTab === 'dashboard' && (
-                <>
-                  <h2 className="text-2xl font-bold text-white mb-6">📊 Dashboard</h2>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <MetricCard title="Total de Clientes" value={users.length} icon={UsersIcon} color="blue" />
-                    <MetricCard title="Clientes Ativos" value={activeUsers} icon={CheckCircleIcon} color="green" />
-                    <MetricCard title="Clientes Bloqueados" value={blockedUsers} icon={NoSymbolIcon} color="red" />
-                    <MetricCard title="Planos Premium" value={premiumUsers} icon={ShieldCheckIcon} color="purple" />
-                    <MetricCard title="Custo Estimado (Global)" value={`$${usageSummary.totalCost.toFixed(4)}`} icon={BanknotesIcon} color="yellow" />
-                  </div>
-
-                  {/* API Usage Breakdown */}
-                  <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 mt-6">
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-sm uppercase font-bold text-gray-400">Consumo de IA (Global)</h3>
-                      <button onClick={() => { resetAllUsageStats(); refreshData(); }} className="text-xs text-red-500 hover:text-red-400">Resetar Global</button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="bg-black p-4 rounded border border-gray-800 flex items-center justify-between">
-                        <div>
-                          <p className="text-gray-500 text-xs">Text / Chat</p>
-                          <p className="text-xl font-bold text-white">{usageSummary.textRequests}</p>
-                        </div>
-                        <SparklesIcon className="w-8 h-8 text-blue-500 opacity-50" />
-                      </div>
-                      <div className="bg-black p-4 rounded border border-gray-800 flex items-center justify-between">
-                        <div>
-                          <p className="text-gray-500 text-xs">Imagens Geradas</p>
-                          <p className="text-xl font-bold text-white">{usageSummary.imageRequests}</p>
-                        </div>
-                        <EyeIcon className="w-8 h-8 text-purple-500 opacity-50" />
-                      </div>
-                      <div className="bg-black p-4 rounded border border-gray-800 flex items-center justify-between">
-                        <div>
-                          <p className="text-gray-500 text-xs">Vídeos</p>
-                          <p className="text-xl font-bold text-white">{usageSummary.videoRequests}</p>
-                        </div>
-                        <ArrowRightStartOnRectangleIcon className="w-8 h-8 text-orange-500 opacity-50" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                    <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-                      <h3 className="text-sm uppercase font-bold text-gray-400 mb-4">Atividade Recente</h3>
-                      <div className="space-y-3">
-                        {logs.slice(0, 5).map(log => (
-                          <div key={log.id} className="flex items-start gap-3 text-xs">
-                            <span className={`px-2 py-0.5 rounded font-bold ${log.level === 'INFO' ? 'bg-blue-900/20 text-blue-400' :
-                              log.level === 'WARN' ? 'bg-yellow-900/20 text-yellow-400' :
-                                'bg-red-900/20 text-red-400'
-                              }`}>{log.level}</span>
-                            <span className="text-gray-400 flex-1">{log.message}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-                      <h3 className="text-sm uppercase font-bold text-gray-400 mb-4">Notificações Ativas</h3>
-                      <div className="space-y-3">
-                        {notifications.filter(n => n.isActive).slice(0, 5).map(notif => (
-                          <div key={notif.id} className="bg-black p-3 rounded border border-gray-800">
-                            <p className="text-sm font-bold text-white">{notif.title}</p>
-                            <p className="text-xs text-gray-500 mt-1">{notif.message.substring(0, 60)}...</p>
-                          </div>
-                        ))}
-                        {activeNotifications === 0 && (
-                          <p className="text-xs text-gray-600 text-center py-4">Nenhuma notificação ativa</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </>
+                <DashboardTab
+                  users={users}
+                  activeUsers={activeUsers}
+                  blockedUsers={blockedUsers}
+                  premiumUsers={premiumUsers}
+                  usageSummary={usageSummary}
+                  logs={logs}
+                  notifications={notifications}
+                  activeNotifications={activeNotifications}
+                  onResetUsage={() => { resetAllUsageStats(); refreshData(); }}
+                />
               )}
 
-              {/* CLIENTS TAB */}
               {activeTab === 'clients' && (
-                <>
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-white">👥 Gerenciamento de Clientes</h2>
-                    <button
-                      onClick={() => setShowClientModal(true)}
-                      className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition-colors"
-                    >
-                      <PlusIcon className="w-5 h-5" /> Adicionar Cliente
-                    </button>
-                  </div>
-
-                  <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
-                    <table className="w-full text-left text-sm text-gray-400">
-                      <thead className="bg-black text-gray-500 uppercase text-xs font-bold">
-                        <tr>
-                          <th className="px-6 py-4">Cliente</th>
-                          <th className="px-6 py-4">Status</th>
-                          <th className="px-6 py-4">API Costs (Hoje / Total)</th>
-                          <th className="px-6 py-4 text-right">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-800">
-                        {users.map(user => {
-                          const userConfig = clientConfigs.find(c => c.userId === user.id);
-                          return (
-                            <tr key={user.id} className="hover:bg-gray-800/50 transition-colors">
-                              <td className="px-6 py-4">
-                                <div className="font-medium text-white">{user.name}</div>
-                                <div className="text-xs text-gray-600">{user.email}</div>
-                                {user.phone && <div className="text-[10px] text-gray-500 mt-0.5">{user.phone}</div>}
-                              </td>
-                              <td className="px-6 py-4">
-                                <span className={`flex items-center gap-1.5 text-xs ${user.status === 'active' ? 'text-green-400' : 'text-red-400'
-                                  }`}>
-                                  <div className={`w-1.5 h-1.5 rounded-full ${user.status === 'active' ? 'bg-green-400' : 'bg-red-400'
-                                    }`}></div>
-                                  {user.status}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="text-xs">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-gray-500">Hoje:</span>
-                                    <span className="text-green-400 font-bold">
-                                      ${(allUserStats[user.id]?.dailyCost || 0).toFixed(4)}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-gray-500">Total:</span>
-                                    <span className="text-gray-300">
-                                      ${(allUserStats[user.id]?.totalCost || 0).toFixed(4)}
-                                    </span>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                  <button
-                                    onClick={() => openClientConfig(user.id)}
-                                    className="p-1.5 bg-blue-900/20 hover:bg-blue-900/40 text-blue-400 rounded transition-colors"
-                                    title="Configurar Módulos"
-                                  >
-                                    <CpuChipIcon className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleForceLogout(user.id, user.email)}
-                                    className="p-1.5 bg-yellow-900/20 hover:bg-yellow-900/40 text-yellow-400 rounded transition-colors"
-                                    title="Desconectar"
-                                  >
-                                    <ArrowRightStartOnRectangleIcon className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleBlockUser(user.id, user.status)}
-                                    className="p-1.5 bg-orange-900/20 hover:bg-orange-900/40 text-orange-400 rounded transition-colors"
-                                    title={user.status === 'blocked' ? 'Desbloquear' : 'Bloquear'}
-                                  >
-                                    {user.status === 'blocked' ? <HandRaisedIcon className="w-4 h-4" /> : <NoSymbolIcon className="w-4 h-4" />}
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteClient(user.id, user.email)}
-                                    className="p-1.5 bg-red-900/20 hover:bg-red-900/40 text-red-400 rounded transition-colors"
-                                    title="Deletar"
-                                  >
-                                    <TrashIcon className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
+                <ClientsTab
+                  users={users}
+                  clientConfigs={clientConfigs}
+                  allUserStats={allUserStats}
+                  onAddClient={() => setShowClientModal(true)}
+                  onOpenConfig={openClientConfig}
+                  onForceLogout={handleForceLogout}
+                  onBlockUser={handleBlockUser}
+                  onDeleteClient={handleDeleteClient}
+                />
               )}
 
-              {/* NOTIFICATIONS TAB */}
               {activeTab === 'notifications' && (
-                <>
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-white">🔔 Sistema de Notificações</h2>
-                    <button
-                      onClick={() => setShowNotificationModal(true)}
-                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors"
-                    >
-                      <MegaphoneIcon className="w-5 h-5" /> Criar Notificação
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4">
-                    {notifications.map(notif => (
-                      <div key={notif.id} className={`bg-gray-900 border rounded-lg p-6 ${notif.isActive ? 'border-green-800' : 'border-gray-800 opacity-50'
-                        }`}>
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="text-lg font-bold text-white">{notif.title}</h3>
-                              <span className={`px-2 py-0.5 rounded text-xs font-bold ${notif.type === 'info' ? 'bg-blue-900/20 text-blue-400' :
-                                notif.type === 'warning' ? 'bg-yellow-900/20 text-yellow-400' :
-                                  notif.type === 'success' ? 'bg-green-900/20 text-green-400' :
-                                    'bg-purple-900/20 text-purple-400'
-                                }`}>
-                                {notif.type}
-                              </span>
-                              {notif.isActive && (
-                                <span className="px-2 py-0.5 rounded text-xs font-bold bg-green-900/20 text-green-400">
-                                  ATIVA
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-gray-400 mb-3">{notif.message}</p>
-                            <div className="flex gap-4 text-xs text-gray-600">
-                              <span>Criada: {new Date(notif.createdAt).toLocaleString()}</span>
-                              {notif.expiresAt && <span>Expira: {new Date(notif.expiresAt).toLocaleString()}</span>}
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleToggleNotification(notif.id)}
-                              className={`px-3 py-1.5 rounded text-xs font-bold ${notif.isActive
-                                ? 'bg-yellow-900/20 text-yellow-400 hover:bg-yellow-900/40'
-                                : 'bg-green-900/20 text-green-400 hover:bg-green-900/40'
-                                }`}
-                            >
-                              {notif.isActive ? 'Desativar' : 'Ativar'}
-                            </button>
-                            <button
-                              onClick={() => handleDeleteNotification(notif.id)}
-                              className="px-3 py-1.5 bg-red-900/20 hover:bg-red-900/40 text-red-400 rounded text-xs font-bold"
-                            >
-                              Deletar
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </>
+                <NotificationsTab
+                  notifications={notifications}
+                  onOpenCreateModal={() => setShowNotificationModal(true)}
+                  onToggleStatus={handleToggleNotification}
+                  onDelete={handleDeleteNotification}
+                />
               )}
 
-              {/* FILES TAB */}
               {activeTab === 'files' && (
-                <>
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-white">📁 Distribuição de Arquivos</h2>
-                    <button
-                      onClick={() => setShowFileModal(true)}
-                      className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded transition-colors"
-                    >
-                      <DocumentArrowUpIcon className="w-5 h-5" /> Upload de Arquivo
-                    </button>
-                  </div>
-
-                  <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
-                    <table className="w-full text-left text-sm text-gray-400">
-                      <thead className="bg-black text-gray-500 uppercase text-xs font-bold">
-                        <tr>
-                          <th className="px-6 py-4">Arquivo</th>
-                          <th className="px-6 py-4">Tipo</th>
-                          <th className="px-6 py-4">Tamanho</th>
-                          <th className="px-6 py-4">Distribuição</th>
-                          <th className="px-6 py-4">Downloads</th>
-                          <th className="px-6 py-4">Status</th>
-                          <th className="px-6 py-4 text-right">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-800">
-                        {files.map(file => (
-                          <tr key={file.id} className="hover:bg-gray-800/50 transition-colors">
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-3">
-                                <DocumentTextIcon className="w-5 h-5 text-blue-400" />
-                                <div>
-                                  <div className="font-medium text-white">{file.fileName}</div>
-                                  {file.description && (
-                                    <div className="text-xs text-gray-600">{file.description.substring(0, 50)}...</div>
-                                  )}
-                                  {file.tags && file.tags.length > 0 && (
-                                    <div className="flex gap-1 mt-1">
-                                      {file.tags.map((tag, idx) => (
-                                        <span key={idx} className="px-1.5 py-0.5 bg-gray-800 text-gray-400 rounded text-[10px]">
-                                          {tag}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="px-2 py-1 bg-blue-900/20 text-blue-400 rounded text-xs font-bold uppercase">
-                                {file.fileType}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-gray-500">
-                              {formatFileSize(file.fileSize)}
-                            </td>
-                            <td className="px-6 py-4">
-                              {file.targetType === 'all' ? (
-                                <span className="px-2 py-1 bg-green-900/20 text-green-400 rounded text-xs font-bold">
-                                  TODOS
-                                </span>
-                              ) : (
-                                <span className="px-2 py-1 bg-orange-900/20 text-orange-400 rounded text-xs font-bold">
-                                  ESPECÍFICO ({file.targetUsers?.length || 0} users)
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-2">
-                                <ArrowDownTrayIcon className="w-4 h-4 text-gray-500" />
-                                <span className="font-bold text-white">{file.downloadCount}</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <button
-                                onClick={() => handleToggleFile(file.id)}
-                                className={`px-2 py-1 rounded text-xs font-bold ${file.isActive
-                                  ? 'bg-green-900/20 text-green-400 border border-green-900'
-                                  : 'bg-red-900/20 text-red-400 border border-red-900'
-                                  }`}
-                              >
-                                {file.isActive ? 'Ativo' : 'Inativo'}
-                              </button>
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <button
-                                  onClick={() => handleViewFileStats(file)}
-                                  className="p-1.5 bg-blue-900/20 hover:bg-blue-900/40 text-blue-400 rounded transition-colors"
-                                  title="Ver Estatísticas"
-                                >
-                                  <EyeIcon className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteFile(file.id, file.fileName)}
-                                  className="p-1.5 bg-red-900/20 hover:bg-red-900/40 text-red-400 rounded transition-colors"
-                                  title="Deletar"
-                                >
-                                  <TrashIcon className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                        {files.length === 0 && (
-                          <tr>
-                            <td colSpan={7} className="px-6 py-12 text-center text-gray-600">
-                              <FolderIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                              <p>Nenhum arquivo enviado ainda.</p>
-                              <p className="text-xs mt-1">Clique em "Upload de Arquivo" para começar.</p>
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
+                <FilesTab
+                  files={files}
+                  onOpenUploadModal={() => setShowFileModal(true)}
+                  onToggleStatus={handleToggleFile}
+                  onDelete={handleDeleteFile}
+                  onViewStats={handleViewFileStats}
+                />
               )}
 
-              {/* API KEYS TAB */}
               {activeTab === 'apikeys' && (
-                <>
-                  <h2 className="text-2xl font-bold text-white mb-6">🔑 Gerenciamento de API Keys</h2>
-                  <h2 className="text-2xl font-bold text-white mb-6">🔑 Gerenciamento de API Keys</h2>
-
-                  {/* GLOBAL KEYS SECTION */}
-                  <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 mb-6">
-                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                      <ServerIcon className="w-5 h-5 text-purple-500" /> Chaves Globais do Sistema
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                      {/* Standard Key */}
-                      <div className="bg-black p-4 rounded border border-gray-800">
-                        <label className="block text-xs uppercase font-bold text-gray-500 mb-2">Chave Padrão (Gemini Flash/Pro)</label>
-                        <input
-                          type="password"
-                          className="w-full bg-gray-900 border border-gray-700 text-white p-2 rounded text-sm mb-3"
-                          placeholder="AIzaSy..."
-                          defaultValue={localStorage.getItem('vitrinex_gemini_api_key') || ''}
-                          id="global_std_key"
-                        />
-                        <button
-                          onClick={() => {
-                            const val = (document.getElementById('global_std_key') as HTMLInputElement).value;
-                            localStorage.setItem('vitrinex_gemini_api_key', val);
-                            alert('Chave Padrão Salva!');
-                          }}
-                          className="w-full bg-blue-900/20 hover:bg-blue-900/40 text-blue-400 py-2 rounded text-xs font-bold transition-colors"
-                        >
-                          Salvar Padrão
-                        </button>
-                      </div>
-
-                      {/* Vertex Key */}
-                      <div className="bg-black p-4 rounded border border-gray-800">
-                        <div className="flex justify-between items-center mb-2">
-                          <label className="block text-xs uppercase font-bold text-purple-500">Chave Vertex / High-End</label>
-                          <span className="text-[10px] bg-purple-900/40 text-purple-300 px-2 rounded">Opcional</span>
-                        </div>
-                        <input
-                          type="password"
-                          className="w-full bg-gray-900 border border-gray-700 text-white p-2 rounded text-sm mb-3"
-                          placeholder="AIzaSy..."
-                          defaultValue={localStorage.getItem('vitrinex_vertex_api_key') || ''}
-                          id="global_vertex_key"
-                        />
-                        <button
-                          onClick={() => {
-                            const val = (document.getElementById('global_vertex_key') as HTMLInputElement).value;
-                            localStorage.setItem('vitrinex_vertex_api_key', val);
-                            alert('Chave Vertex Salva!');
-                          }}
-                          className="w-full bg-purple-900/20 hover:bg-purple-900/40 text-purple-400 py-2 rounded text-xs font-bold transition-colors"
-                        >
-                          Salvar Vertex
-                        </button>
-                      </div>
-
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-                    <p className="text-gray-400 mb-4">Visualize e gerencie os limites dos clientes.</p>
-                    <div className="space-y-4">
-                      {clientConfigs.map(config => {
-                        const user = users.find(u => u.id === config.userId);
-                        return (
-                          <div key={config.userId} className="bg-black p-4 rounded border border-gray-800 flex items-center justify-between">
-                            <div>
-                              <p className="font-bold text-white">{user?.name || 'Unknown'}</p>
-                              <p className="text-xs text-gray-600">Rate Limit: {config.apiAccess.rateLimit} req/min</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className={`px-2 py-1 rounded text-xs font-bold ${config.apiAccess.geminiEnabled
-                                ? 'bg-green-900/20 text-green-400'
-                                : 'bg-gray-800 text-gray-500'
-                                }`}>
-                                Gemini: {config.apiAccess.geminiEnabled ? 'ON' : 'OFF'}
-                              </span>
-                              <button className="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-white rounded text-xs">
-                                Testar
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
+                <ApiKeysTab
+                  clientConfigs={clientConfigs}
+                  users={users}
+                />
               )}
 
-              {/* SYSTEM TAB */}
-              {activeTab === 'system' && config && (
-                <>
-                  <h2 className="text-2xl font-bold text-white mb-6">⚙️ Configurações do Sistema</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-                      <h3 className="text-sm uppercase font-bold text-gray-400 mb-6 border-b border-gray-800 pb-2 flex items-center gap-2">
-                        <PowerIcon className="w-4 h-4" /> Controle de Módulos Globais
-                      </h3>
-                      <div className="grid grid-cols-1 gap-4">
-                        {Object.entries(config.modules).map(([key, isEnabled]) => (
-                          <div key={key} className="flex items-center justify-between bg-black p-4 rounded border border-gray-800">
-                            <span className="text-sm font-medium text-gray-300">{key}</span>
-                            <button
-                              onClick={() => toggleModule(key)}
-                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isEnabled ? 'bg-green-600' : 'bg-gray-700'
-                                }`}
-                            >
-                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ${isEnabled ? 'translate-x-6' : 'translate-x-1'
-                                }`} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-                      <h3 className="text-sm uppercase font-bold text-gray-400 mb-4 flex items-center gap-2">
-                        <ServerIcon className="w-4 h-4" /> Ações do Sistema
-                      </h3>
-                      <div className="space-y-3">
-                        <button
-                          onClick={handleBackup}
-                          className="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white py-3 rounded transition-colors"
-                        >
-                          <ArchiveBoxIcon className="w-5 h-5" /> Executar Backup Manual
-                        </button>
-                        <button
-                          onClick={refreshData}
-                          className="w-full flex items-center justify-center gap-2 bg-blue-900/20 hover:bg-blue-900/40 text-blue-400 py-3 rounded transition-colors border border-blue-900"
-                        >
-                          <ArrowPathIcon className="w-5 h-5" /> Recarregar Dados
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </>
+              {activeTab === 'system' && (
+                <SystemTab
+                  config={config}
+                  onToggleModule={toggleModule}
+                  onBackup={handleBackup}
+                  onRefresh={refreshData}
+                />
               )}
 
-              {/* LOGS TAB */}
               {activeTab === 'logs' && (
-                <>
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-white">📋 Logs do Sistema</h2>
-                    <button
-                      onClick={refreshData}
-                      className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded transition-colors"
-                    >
-                      <ArrowPathIcon className="w-5 h-5" /> Atualizar
-                    </button>
-                  </div>
-                  <div className="bg-black border border-gray-800 rounded-lg p-4 font-mono text-xs h-[600px] overflow-y-auto">
-                    {logs.map((log) => (
-                      <div key={log.id} className="mb-2 flex gap-3 hover:bg-gray-900/50 p-2 rounded">
-                        <span className="text-gray-600 shrink-0 w-36">{new Date(log.timestamp).toLocaleString()}</span>
-                        <span className={`shrink-0 w-16 font-bold ${log.level === 'INFO' ? 'text-blue-400' :
-                          log.level === 'WARN' ? 'text-yellow-400' :
-                            log.level === 'ERROR' ? 'text-red-500' :
-                              'text-purple-400'
-                          }`}>
-                          [{log.level}]
-                        </span>
-                        <span className="text-gray-500 shrink-0 w-28 uppercase text-[10px]">[{log.module}]</span>
-                        <span className="text-gray-300">{log.message}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
+                <LogsTab
+                  logs={logs}
+                  onRefresh={refreshData}
+                />
               )}
-
             </div>
           )}
         </main>
@@ -1321,57 +839,5 @@ const AdminConsole: React.FC = () => {
     </div>
   );
 };
-
-// Helper Components
-const NavButton: React.FC<{ icon: any; label: string; active: boolean; onClick: () => void; badge?: number }> = ({ icon: Icon, label, active, onClick, badge }) => (
-  <button
-    onClick={onClick}
-    className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded text-sm transition-all ${active ? 'bg-gray-800 text-white border-l-2 border-green-500' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
-      }`}
-  >
-    <div className="flex items-center gap-3">
-      <Icon className="w-5 h-5" />
-      {label}
-    </div>
-    {badge !== undefined && badge > 0 && (
-      <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{badge}</span>
-    )}
-  </button>
-);
-
-const MetricCard: React.FC<{ title: string; value: number | string; icon: any; color: string }> = ({ title, value, icon: Icon, color }) => {
-  const colorClasses = {
-    blue: 'bg-blue-900/20 border-blue-900 text-blue-400',
-    green: 'bg-green-900/20 border-green-900 text-green-400',
-    red: 'bg-red-900/20 border-red-900 text-red-400',
-    purple: 'bg-purple-900/20 border-purple-900 text-purple-400',
-  };
-
-  return (
-    <div className={`${colorClasses[color as keyof typeof colorClasses]} border rounded-lg p-6`}>
-      <div className="flex items-center justify-between mb-4">
-        <Icon className="w-8 h-8" />
-        <span className="text-3xl font-bold">{value}</span>
-      </div>
-      <p className="text-sm uppercase tracking-wider opacity-80">{title}</p>
-    </div>
-  );
-};
-
-const Modal: React.FC<{ title: string; onClose: () => void; children: React.ReactNode }> = ({ title, onClose, children }) => (
-  <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-    <div className="bg-gray-900 border border-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-      <div className="flex items-center justify-between p-6 border-b border-gray-800">
-        <h3 className="text-xl font-bold text-white">{title}</h3>
-        <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
-          <XMarkIcon className="w-6 h-6" />
-        </button>
-      </div>
-      <div className="p-6">
-        {children}
-      </div>
-    </div>
-  </div>
-);
 
 export default AdminConsole;

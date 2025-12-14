@@ -3,15 +3,15 @@ import React, { useState, useCallback, useEffect } from 'react';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { searchTrends, generateText } from '../services/geminiService';
-import { getTrends, saveTrend } from '../services/dbService';
+import { searchTrends, generateText } from '../services/ai/geminiService';
+import { getTrends, saveTrend } from '../services/core/dbService';
 import { Trend, GroundingMetadata } from '../types';
 import { useNavigate } from '../hooks/useNavigate';
 import { GEMINI_FLASH_MODEL } from '../constants';
 import { LightBulbIcon, MapPinIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
 import { useToast } from '../contexts/ToastContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { getBestPostingTimes, suggestHashtags } from '../services/trendsService';
+import { getBestPostingTimes, suggestHashtags } from '../services/ai/trendsService';
 import { ClockIcon, HashtagIcon } from '@heroicons/react/24/outline';
 
 const TrendHunter: React.FC = () => {

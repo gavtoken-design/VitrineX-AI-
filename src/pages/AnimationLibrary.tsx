@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { lottieService, LottieAnimation as LottieAnimationType } from '../services/lottieService';
+import { lottieService, LottieAnimation as LottieAnimationType } from '../services/media/lottieService';
 import LottieAnimation from '../components/LottieAnimation';
 import {
     MagnifyingGlassIcon,

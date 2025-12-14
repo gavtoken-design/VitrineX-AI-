@@ -1,6 +1,6 @@
 
 // Scheduler Worker - Execução Automática de Posts Agendados
-import { getScheduleEntries, updateScheduleEntry } from './dbService';
+import { getScheduleEntries, updateScheduleEntry } from './core/dbService';
 import { ScheduleEntry } from '../types';
 
 let workerInterval: NodeJS.Timeout | null = null;

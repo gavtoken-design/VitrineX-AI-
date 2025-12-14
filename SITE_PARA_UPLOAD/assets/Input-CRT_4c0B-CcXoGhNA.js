@@ -1,0 +1,3 @@
+import{S as c,_ as r}from"./index-Di1jv5f6.js";const d=c.forwardRef(({label:o,id:s,error:e,className:t="",...l},a)=>r.jsxs("div",{className:"mb-4",children:[o&&r.jsx("label",{htmlFor:s,className:"block text-sm font-medium text-title mb-1.5",children:o}),r.jsx("input",{id:s,ref:a,className:`block w-full px-3 py-2.5 bg-surface border rounded-lg shadow-sm text-body placeholder-muted transition-colors
+          ${e?"border-error focus:ring-error focus:border-error":"border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary"} 
+          focus:outline-none sm:text-sm ${t}`,...l}),e&&r.jsx("p",{className:"mt-1 text-xs text-error",children:e})]}));export{d as n};

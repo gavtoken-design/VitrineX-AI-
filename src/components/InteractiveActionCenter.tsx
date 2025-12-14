@@ -10,7 +10,7 @@ import {
   generateSpeech, 
   generateVideo, 
   queryFileSearchStore 
-} from '../services/geminiService';
+} from '../services/ai/geminiService';
 import { 
   CommandLineIcon, 
   PhotoIcon, 

@@ -37,7 +37,9 @@ export const DEFAULT_BUSINESS_PROFILE = {
 export const MOCK_API_DELAY = 1500;
 
 // User provided API Key from environment variables
-export const HARDCODED_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+// API Key handling is done in services
+export const ENV_GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+export const HARDCODED_API_KEY = 'AIzaSyBLJlHBFH-lP4iLft-V6FcCk8LYxqJjNlU'; // Configured via Agent
 
 // --- Seasonal Templates (Christmas & New Year) ---
 export const SEASONAL_TEMPLATES = [

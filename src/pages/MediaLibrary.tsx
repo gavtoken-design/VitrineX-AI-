@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { mediaService, MediaImage, MediaVideo } from '../services/mediaService';
+import { mediaService, MediaImage, MediaVideo } from '../services/media/mediaService';
 import MediaSearch, { MediaSearchFilters } from '../components/MediaSearch';
 import MediaGallery from '../components/MediaGallery';
 import { PhotoIcon, VideoCameraIcon, SparklesIcon } from '@heroicons/react/24/outline';

@@ -4,8 +4,8 @@ import Input from '../components/Input';
 import Button from '../components/Button';
 import Textarea from '../components/Textarea';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { getUserProfile, updateUserProfile } from '../services/dbService';
-import { testGeminiConnection } from '../services/geminiService';
+import { getUserProfile, updateUserProfile } from '../services/core/dbService';
+import { testGeminiConnection } from '../services/ai/geminiService';
 import { UserProfile } from '../types';
 import { DEFAULT_BUSINESS_PROFILE, HARDCODED_API_KEY } from '../constants';
 // FIX: Add missing import for Cog6ToothIcon

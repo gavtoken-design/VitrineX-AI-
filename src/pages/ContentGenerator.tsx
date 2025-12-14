@@ -5,8 +5,8 @@ import Input from '../components/Input';
 import SaveToLibraryButton from '../components/SaveToLibraryButton';
 import LoadingSpinner from '../components/LoadingSpinner';
 import MediaActionsToolbar from '../components/MediaActionsToolbar'; // NOVO
-import { generateText, generateImage } from '../services/geminiService';
-import { savePost } from '../services/firestoreService';
+import { generateText, generateImage } from '../services/ai/geminiService';
+import { savePost } from '../services/core/firestoreService';
 import { Post } from '../types';
 import { GEMINI_FLASH_MODEL, GEMINI_IMAGE_FLASH_MODEL, PLACEHOLDER_IMAGE_BASE64 } from '../constants';
 import { useToast } from '../contexts/ToastContext';

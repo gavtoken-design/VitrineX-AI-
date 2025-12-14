@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChatMessage as ChatMessageType } from '../types';
-import { sendMessageToChat } from '../services/geminiService';
+import { sendMessageToChat } from '../services/ai/geminiService';
 import { Part } from '@google/genai';
 import { GEMINI_PRO_MODEL, VITRINEX_SYSTEM_INSTRUCTION } from '../constants';
 import {
@@ -22,7 +22,7 @@ import MultimodalChatInput from '../components/MultimodalChatInput';
 import Button from '../components/Button';
 import Textarea from '../components/Textarea';
 import { useToast } from '../contexts/ToastContext';
-import { generateSpeech, decode, decodeAudioData } from '../services/geminiService';
+import { generateSpeech, decode, decodeAudioData } from '../services/ai/geminiService';
 import { useDownloader } from '../hooks/useDownloader';
 import ArtifactPanel from '../components/ArtifactPanel';
 

@@ -8,7 +8,7 @@ import { useNavigate } from '../hooks/useNavigate';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
 import { useTutorial, TutorialStep } from '../contexts/TutorialContext'; // Import Tutorial Hook
-import { testGeminiConnection } from '../services/geminiService';
+import { testGeminiConnection } from '../services/ai/geminiService';
 import { 
   DocumentTextIcon, 
   MegaphoneIcon, 

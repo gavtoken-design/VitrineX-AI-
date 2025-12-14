@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { MediaImage, MediaVideo } from '../services/mediaService';
+import { MediaImage, MediaVideo } from '../services/media/mediaService';
 import {
     ArrowDownTrayIcon,
     HeartIcon,

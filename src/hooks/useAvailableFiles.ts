@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminService } from '../services/adminService';
-import { getCurrentUser } from '../services/authService';
+import { getCurrentUser } from '../services/core/authService';
 import { FileDistribution } from '../types';
 
 export const useAvailableFiles = () => {

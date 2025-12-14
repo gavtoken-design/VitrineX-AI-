@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Button from './Button';
 import { BookmarkSquareIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { uploadFile } from '../services/cloudStorageService';
-import { saveLibraryItem } from '../services/dbService';
+import { saveLibraryItem } from '../services/core/dbService';
 import { LibraryItem } from '../types';
 import { useToast } from '../contexts/ToastContext';
 

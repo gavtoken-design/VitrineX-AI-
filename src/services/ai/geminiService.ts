@@ -1,4 +1,4 @@
-
+﻿
 import {
   GoogleGenAI,
   GenerateContentResponse,
@@ -23,10 +23,10 @@ import {
   VEO_FAST_GENERATE_MODEL,
   GEMINI_LIVE_AUDIO_MODEL,
   GEMINI_TTS_MODEL,
-  HARDCODED_API_KEY,
+  ENV_GEMINI_API_KEY,
   VITRINEX_SYSTEM_INSTRUCTION,
   IMAGE_PROMPT_ENHANCEMENT,
-} from '../constants';
+} from '../../constants';
 import {
   UserProfile,
   Post,
@@ -36,10 +36,12 @@ import {
   ChatMessage,
   KnowledgeBaseQueryResponse,
   OrganizationMembership,
-} from '../types';
-import { getAuthToken, getActiveOrganization, getCurrentUser } from './authService';
+} from '../../types';
+import { getAuthToken, getActiveOrganization, getCurrentUser } from '../core/authService';
 import { generateEnhancedSystemInstruction } from './appKnowledgeBase';
-import { trackUsage } from './usageTracker';
+import { trackUsage } from '../core/usageTracker';
+import { logger } from '../../utils/logger';
+import { decode, decodeAudioData, createBlob } from '../../utils/audio';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 const LOCAL_KB_STORAGE_KEY = 'vitrinex_kb_local_content';
@@ -54,8 +56,8 @@ async function getApiKey(type: 'standard' | 'vertex' = 'standard'): Promise<stri
   const localKey = localStorage.getItem('vitrinex_gemini_api_key');
   if (localKey) return localKey;
 
-  if (HARDCODED_API_KEY) return HARDCODED_API_KEY;
-  throw new Error('Chave de API não encontrada.');
+  if (ENV_GEMINI_API_KEY) return ENV_GEMINI_API_KEY;
+  throw new Error('Chave de API nÃ£o encontrada.');
 }
 
 async function getGenAIClient(explicitKey?: string, type: 'standard' | 'vertex' = 'standard'): Promise<GoogleGenAI> {
@@ -88,7 +90,7 @@ async function proxyFetch<T>(endpoint: string, method: string, body: any, signal
 export const testGeminiConnection = async (explicitKey?: string): Promise<string> => {
   const ai = await getGenAIClient(explicitKey);
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-lite",
+    model: "gemini-3-pro-preview",
     contents: "Explain how AI works in a few words",
   });
   return response.text || 'No response text received';
@@ -120,9 +122,9 @@ export const generateText = async (prompt: string, options?: GenerateTextOptions
   try {
     try {
       // Dynamic import to avoid circular dependency if dbService imports geminiService
-      const { getUserProfile } = await import('./dbService');
+      const { getUserProfile } = await import('../core/dbService');
       userProfile = await getUserProfile(userId);
-    } catch (e) { console.warn("Could not load user profile for context", e); }
+    } catch (e) { logger.warn("Could not load user profile for context", e); }
 
     // --- THINKING MODE AND MODEL LOGIC ---
     let finalModel = options?.model || GEMINI_FLASH_MODEL;
@@ -152,7 +154,7 @@ export const generateText = async (prompt: string, options?: GenerateTextOptions
     return response.response?.text || '';
   } catch (error: any) {
     if (error.name === 'AbortError') throw error;
-    console.warn("Backend proxy failed for generateText, falling back to client-side SDK.", error);
+    logger.warn("Backend proxy failed for generateText, falling back to client-side SDK.", error);
 
     // Select correct key type based on options
     const keyType = options?.useThinkingMode ? 'vertex' : 'standard';
@@ -226,7 +228,7 @@ export const generateImage = async (prompt: string, options?: GenerateImageOptio
     return { imageUrl: `data:${response.mimeType};base64,${response.base64Image}` };
   } catch (error: any) {
     if (error.name === 'AbortError') throw error;
-    console.warn("Backend proxy failed for generateImage, falling back to client-side SDK.", error);
+    logger.warn("Backend proxy failed for generateImage, falling back to client-side SDK.", error);
 
     // Select correct key type based on options
     const keyType = options?.useVertexHighQuality ? 'vertex' : 'standard';
@@ -249,7 +251,7 @@ export const generateImage = async (prompt: string, options?: GenerateImageOptio
     }
 
     if (imageUrl) return { imageUrl };
-    return { text: response.text || 'Imagem gerada, mas formato não reconhecido no fallback.' };
+    return { text: response.text || 'Imagem gerada, mas formato nÃ£o reconhecido no fallback.' };
   }
 };
 
@@ -264,10 +266,10 @@ export const editImage = async (prompt: string, base64ImageData: string, mimeTyp
     if (imagePart) {
       return { imageUrl: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}` };
     }
-    return { text: response.response?.text || 'Nenhuma edição retornada.' };
+    return { text: response.response?.text || 'Nenhuma ediÃ§Ã£o retornada.' };
   } catch (error: any) {
     if (error.name === 'AbortError') throw error;
-    console.warn("Backend proxy failed for editImage, falling back to client-side SDK.", error);
+    logger.warn("Backend proxy failed for editImage, falling back to client-side SDK.", error);
     const ai = await getGenAIClient();
     const response = await ai.models.generateContent({
       model,
@@ -284,7 +286,7 @@ export const editImage = async (prompt: string, base64ImageData: string, mimeTyp
         return { imageUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}` };
       }
     }
-    return { text: response.text || 'Nenhuma edição retornada no fallback.' };
+    return { text: response.text || 'Nenhuma ediÃ§Ã£o retornada no fallback.' };
   }
 };
 
@@ -307,7 +309,7 @@ export const generateVideo = async (prompt: string, options?: GenerateVideoOptio
     });
     return response.videoUri;
   } catch (error) {
-    console.warn("Backend proxy failed for generateVideo, falling back to client-side SDK.", error);
+    logger.warn("Backend proxy failed for generateVideo, falling back to client-side SDK.", error);
     const ai = await getGenAIClient();
 
     const request: any = {
@@ -339,9 +341,9 @@ export const analyzeImage = async (base64ImageData: string, mimeType: string, pr
       model,
       contents: [{ role: 'user', parts: [{ inlineData: { data: base64ImageData, mimeType } }, { text: prompt }] }],
     });
-    return response.response?.text || 'Sem análise.';
+    return response.response?.text || 'Sem anÃ¡lise.';
   } catch (error) {
-    console.warn("Backend proxy failed for analyzeImage, falling back to client-side SDK.", error);
+    logger.warn("Backend proxy failed for analyzeImage, falling back to client-side SDK.", error);
     const ai = await getGenAIClient();
     const response = await ai.models.generateContent({
       model,
@@ -352,7 +354,7 @@ export const analyzeImage = async (base64ImageData: string, mimeType: string, pr
         ]
       }
     });
-    return response.text || 'Sem análise no fallback.';
+    return response.text || 'Sem anÃ¡lise no fallback.';
   }
 };
 
@@ -362,7 +364,7 @@ export const queryArchitect = async (query: string): Promise<string> => {
 
 export const searchTrends = async (query: string, language: string = 'en-US'): Promise<Trend[]> => {
   const prompt = language === 'pt-BR'
-    ? `Encontre as tendências de marketing atuais para "${query}". Forneça um resumo detalhado em português e cite as fontes.`
+    ? `Encontre as tendÃªncias de marketing atuais para "${query}". ForneÃ§a um resumo detalhado em portuguÃªs e cite as fontes.`
     : `Find current marketing trends for "${query}". Provide a detailed summary and cite sources.`;
 
   try {
@@ -391,7 +393,7 @@ export const searchTrends = async (query: string, language: string = 'en-US'): P
       userId: 'mock-user-123'
     }];
   } catch (error) {
-    console.warn("Backend proxy failed for searchTrends, falling back to client-side SDK.", error);
+    logger.warn("Backend proxy failed for searchTrends, falling back to client-side SDK.", error);
     // Client-side fallback with standard Google Search Tool
     const ai = await getGenAIClient();
     const response = await ai.models.generateContent({
@@ -434,7 +436,7 @@ export const campaignBuilder = async (campaignPrompt: string): Promise<{ campaig
   try {
     videoUrl = await generateVideo(`A short promo video for ${plan.campaignName}`);
   } catch (e) {
-    console.warn("Video generation failed for campaign", e);
+    logger.warn("Video generation failed for campaign", e);
   }
 
   return { campaign: { id: `c-${Date.now()}`, name: plan.campaignName, type: 'general', posts: [], ads: [], timeline: '', createdAt: new Date().toISOString(), userId: 'mock-user-123' }, videoUrl };
@@ -456,7 +458,7 @@ export const generateSpeech = async (text: string, voiceName: string = 'Kore'): 
     });
     return response.base64Audio;
   } catch (error) {
-    console.warn("Backend proxy failed for generateSpeech, falling back to client-side SDK.", error);
+    logger.warn("Backend proxy failed for generateSpeech, falling back to client-side SDK.", error);
     const ai = await getGenAIClient();
     const response = await ai.models.generateContent({
       model: GEMINI_TTS_MODEL,
@@ -522,7 +524,7 @@ export const sendMessageToChat = async (
     return fullText;
   } catch (error) {
     if (!signal?.aborted) {
-      console.warn("Backend proxy failed for sendMessageToChat, falling back to client-side SDK.", error);
+      logger.warn("Backend proxy failed for sendMessageToChat, falling back to client-side SDK.", error);
 
       const ai = await getGenAIClient();
       const model = options.model || GEMINI_PRO_MODEL;
@@ -554,7 +556,7 @@ export const connectLiveSession = async (callbacks: LiveSessionCallbacks) => { }
 
 export const createFileSearchStore = async (displayName?: string): Promise<any> => {
   try { return await proxyFetch('knowledge-base/store', 'POST', { displayName }); }
-  catch (e) { console.warn("Fallback: CreateStore", e); return { storeName: 'mock-store', displayName: displayName || 'Mock' }; }
+  catch (e) { logger.warn("Fallback: CreateStore", e); return { storeName: 'mock-store', displayName: displayName || 'Mock' }; }
 };
 
 export const uploadFileToSearchStore = async (file: File, metadata: any): Promise<any> => {
@@ -568,50 +570,16 @@ export const uploadFileToSearchStore = async (file: File, metadata: any): Promis
     });
     if (!res.ok) throw new Error("Backend upload failed");
     return res.json();
-  } catch (e) { console.warn("Fallback: uploadFile", e); return { fileId: 'mock-file-id' }; }
+  } catch (e) { logger.warn("Fallback: uploadFile", e); return { fileId: 'mock-file-id' }; }
 };
 
 export const queryFileSearchStore = async (prompt: string): Promise<KnowledgeBaseQueryResponse> => {
   try { return await proxyFetch('knowledge-base/query', 'POST', { prompt }); }
   catch (e) {
-    console.warn("Fallback: queryFileSearchStore", e);
+    logger.warn("Fallback: queryFileSearchStore", e);
     const text = await generateText(prompt);
     return { resposta: text, arquivos_usados: [], trechos_referenciados: [], confianca: 0 };
   }
 };
 
-export function decode(base64: string): Uint8Array {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-}
 
-export async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
-  const dataInt16 = new Int16Array(data.buffer);
-  const frameCount = dataInt16.length / numChannels;
-  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-
-  for (let channel = 0; channel < numChannels; channel++) {
-    const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) {
-      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-    }
-  }
-  return buffer;
-}
-
-export function createBlob(data: Float32Array): Blob {
-  const l = data.length;
-  const int16 = new Int16Array(l);
-  for (let i = 0; i < l; i++) {
-    int16[i] = data[i] * 32768;
-  }
-  return {
-    data: btoa(String.fromCharCode(...new Uint8Array(int16.buffer))),
-    mimeType: 'audio/pcm;rate=16000',
-  };
-}

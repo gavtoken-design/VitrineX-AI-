@@ -4,12 +4,12 @@ import React, { useState, useCallback, useEffect } from 'react';
 import Textarea from '../components/Textarea';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { campaignBuilder } from '../services/geminiService';
-import { saveCampaign } from '../services/firestoreService';
+import { campaignBuilder } from '../services/ai/geminiService';
+import { saveCampaign } from '../services/core/firestoreService';
 import { Campaign, UserProfile } from '../types'; // Import UserProfile
 import { useNavigate } from '../hooks/useNavigate';
 import { useToast } from '../contexts/ToastContext';
-import { getCurrentUser } from '../services/authService'; // Import auth service
+import { getCurrentUser } from '../services/core/authService'; // Import auth service
 
 const CampaignBuilder: React.FC = () => {
   const [campaignPrompt, setCampaignPrompt] = useState<string>('');

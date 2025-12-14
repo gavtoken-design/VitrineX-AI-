@@ -15,7 +15,7 @@ import { TutorialProvider } from './contexts/TutorialContext';
 import { remoteControlService, SystemStatus } from './services/remoteControlService';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { KeyIcon, CheckCircleIcon, PlayIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { testGeminiConnection } from './services/geminiService';
+import { testGeminiConnection } from './services/ai/geminiService';
 import { HARDCODED_API_KEY } from './constants';
 import NavigationControls from './components/NavigationControls';
 
