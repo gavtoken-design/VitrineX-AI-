@@ -189,3 +189,23 @@ export const deleteScheduleEntry = async (entryId: string): Promise<void> => {
         }
     });
 };
+
+export const updateScheduleEntry = async (entryId: string, updates: Partial<ScheduleEntry>): Promise<ScheduleEntry> => {
+    return mockDbOperation(() => {
+        if (mockDb.schedule[entryId]) {
+            mockDb.schedule[entryId] = {
+                ...mockDb.schedule[entryId],
+                ...updates,
+            };
+            return mockDb.schedule[entryId];
+        }
+        throw new Error('Agendamento não encontrado');
+    });
+};
+
+export const getLibraryItem = async (itemId: string): Promise<LibraryItem | null> => {
+    return mockDbOperation(() => {
+        return mockDb.library[itemId] || null;
+    });
+};
+

@@ -11,6 +11,8 @@ import { GEMINI_FLASH_MODEL } from '../constants';
 import { LightBulbIcon, MapPinIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
 import { useToast } from '../contexts/ToastContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getBestPostingTimes, suggestHashtags } from '../services/trendsService';
+import { ClockIcon, HashtagIcon } from '@heroicons/react/24/outline';
 
 const TrendHunter: React.FC = () => {
   const [query, setQuery] = useState<string>('');
@@ -295,10 +297,35 @@ const TrendHunter: React.FC = () => {
                             {source.title || source.uri}
                           </a>
                         </li>
-                      ))}
                     </ol>
                   </div>
                 )}
+
+                {/* TrendsService Integration: Helper Data */}
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-orange-50 dark:bg-orange-900/10 p-3 rounded-lg border border-orange-100 dark:border-orange-900/30">
+                    <div className="flex items-center gap-2 mb-2 text-orange-700 dark:text-orange-400 font-bold text-sm">
+                      <ClockIcon className="w-4 h-4" /> Melhores Horários (Sugestão)
+                    </div>
+                    <ul className="text-xs text-orange-800 dark:text-orange-300 space-y-1">
+                      {getBestPostingTimes('instagram').map((time, i) => (
+                        <li key={i}>• {time}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="bg-blue-50 dark:bg-blue-900/10 p-3 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                    <div className="flex items-center gap-2 mb-2 text-blue-700 dark:text-blue-400 font-bold text-sm">
+                      <HashtagIcon className="w-4 h-4" /> Hashtags em Alta
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {['#tendencia', '#viral', '#marketing', '#inovacao'].map((tag) => (
+                        <span key={tag} className="text-xs bg-white dark:bg-blue-900/50 px-2 py-0.5 rounded text-blue-600 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
 
                 {generatedIdeas[trend.id] && (
                   <div className="mt-4 mb-4 p-4 bg-primary/5 border border-primary/20 rounded-md animate-in fade-in">
@@ -326,8 +353,9 @@ const TrendHunter: React.FC = () => {
             ))}
           </div>
         </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
 };
 

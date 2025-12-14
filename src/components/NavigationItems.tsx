@@ -15,7 +15,7 @@ interface NavItemProps {
 
 export const NavItem: React.FC<NavItemProps> = ({ name, label, icon, activeModule, setActiveModule, onNavigate, id }) => {
   const isActive = activeModule === name;
-  
+
   const handleClick = () => {
     setActiveModule(name);
     onNavigate();
@@ -28,8 +28,8 @@ export const NavItem: React.FC<NavItemProps> = ({ name, label, icon, activeModul
         // UX UPDATE: 
         // Aplicado padding exato de 12px vertical e 16px horizontal para área de toque generosa.
         className={`flex items-center p-[12px_16px] w-full text-left transition-all duration-200 group relative rounded-xl
-          ${isActive 
-            ? 'text-primary font-semibold bg-primary/10 shadow-sm' 
+          ${isActive
+            ? 'text-primary font-semibold bg-primary/10 shadow-sm'
             : 'text-muted hover:text-title hover:bg-gray-100 dark:hover:bg-gray-800/50 active:bg-gray-200 dark:active:bg-gray-700'
           } active:scale-[0.98]`}
         title={label}
@@ -50,26 +50,43 @@ export const useNavItems = () => {
 
   // Retorna a estrutura de navegação usando as chaves de string definidas em iconRegistry
   return [
-    { section: 'sidebar.overview', items: [
-      { id: "nav-dashboard", name: "Dashboard" as ModuleName, label: t('sidebar.dashboard'), icon: 'dashboard' as IconName },
-      { id: "nav-ai-manager", name: "AIManager" as ModuleName, label: t('sidebar.ai_assistant'), icon: 'aiManager' as IconName }
-    ]},
-    { section: 'sidebar.creation_suite', items: [
-      { id: "nav-content-gen", name: "ContentGenerator" as ModuleName, label: t('sidebar.content_gen'), icon: 'contentGen' as IconName },
-      { id: "nav-ad-studio", name: "AdStudio" as ModuleName, label: t('sidebar.ad_creator'), icon: 'adStudio' as IconName },
-      { name: "CreativeStudio" as ModuleName, label: t('sidebar.media_studio'), icon: 'creativeStudio' as IconName }
-    ]},
-    { section: 'sidebar.strategy', items: [
-      { name: "CampaignBuilder" as ModuleName, label: t('sidebar.campaigns'), icon: 'campaign' as IconName },
-      { id: "nav-trend-hunter", name: "TrendHunter" as ModuleName, label: t('sidebar.trends'), icon: 'trends' as IconName },
-      { name: "SmartScheduler" as ModuleName, label: t('sidebar.calendar'), icon: 'calendar' as IconName }
-    ]},
-    { section: 'sidebar.communication', items: [
-      { name: "Chatbot" as ModuleName, label: t('sidebar.ai_chat'), icon: 'chat' as IconName }
-    ]},
-    { section: 'sidebar.system', items: [
-      { name: "ContentLibrary" as ModuleName, label: t('sidebar.library'), icon: 'library' as IconName },
-      { id: "nav-settings", name: "Settings" as ModuleName, label: t('sidebar.config'), icon: 'settings' as IconName }
-    ]}
+    {
+      section: 'sidebar.overview', items: [
+        { id: "nav-dashboard", name: "Dashboard" as ModuleName, label: t('sidebar.dashboard'), icon: 'dashboard' as IconName },
+        { id: "nav-ai-manager", name: "AIManager" as ModuleName, label: t('sidebar.ai_assistant'), icon: 'aiManager' as IconName }
+      ]
+    },
+    {
+      section: 'sidebar.creation_suite', items: [
+        { id: "nav-content-gen", name: "ContentGenerator" as ModuleName, label: t('sidebar.content_gen'), icon: 'contentGen' as IconName },
+        { id: "nav-ad-studio", name: "AdStudio" as ModuleName, label: t('sidebar.ad_creator'), icon: 'adStudio' as IconName },
+        { name: "CreativeStudio" as ModuleName, label: t('sidebar.media_studio'), icon: 'creativeStudio' as IconName }
+      ]
+    },
+    {
+      section: 'sidebar.strategy', items: [
+        { name: "CampaignBuilder" as ModuleName, label: t('sidebar.campaigns'), icon: 'campaign' as IconName },
+        { id: "nav-trend-hunter", name: "TrendHunter" as ModuleName, label: t('sidebar.trends'), icon: 'trends' as IconName },
+        { name: "SmartScheduler" as ModuleName, label: t('sidebar.calendar'), icon: 'calendar' as IconName }
+      ]
+    },
+    {
+      section: 'sidebar.communication', items: [
+        { name: "Chatbot" as ModuleName, label: t('sidebar.ai_chat'), icon: 'chat' as IconName }
+      ]
+    },
+    {
+      section: 'sidebar.system', items: [
+        { name: "ContentLibrary" as ModuleName, label: t('sidebar.library'), icon: 'library' as IconName },
+        { id: "nav-settings", name: "Settings" as ModuleName, label: t('sidebar.config'), icon: 'settings' as IconName }
+      ]
+    },
+    {
+      section: 'sidebar.resources', items: [
+        { name: "MediaLibrary" as ModuleName, label: "Media Library", icon: 'film' as IconName },
+        { name: "AnimationLibrary" as ModuleName, label: "Animações", icon: 'gift' as IconName },
+        { name: "PartnerHub" as ModuleName, label: "Parceiros", icon: 'puzzle' as IconName }
+      ]
+    }
   ];
 };

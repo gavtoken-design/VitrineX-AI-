@@ -7,6 +7,7 @@ import {
   SparklesIcon,
   MagnifyingGlassCircleIcon,
   CameraIcon,
+  VideoCameraIcon, // Added missing import
   ArchiveBoxIcon,
   CalendarDaysIcon,
   Cog6ToothIcon,
@@ -85,7 +86,10 @@ export const iconRegistry = {
   clock: ClockIcon,
   plus: PlusIcon,
   bolt: BoltIcon,
-  chart: ChartBarIcon
+  chart: ChartBarIcon,
+  film: VideoCameraIcon,
+  gift: SparklesIcon,
+  puzzle: ArchiveBoxIcon
 };
 
 export type IconName = keyof typeof iconRegistry;

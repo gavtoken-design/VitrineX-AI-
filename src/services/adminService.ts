@@ -50,13 +50,13 @@ let clientConfigs: ClientConfig[] = [
     apiAccess: { enabled: true, geminiEnabled: true, rateLimit: 100 },
     modules: {
       'ContentGenerator': true,
-      'AdStudio': false,
+      'AdStudio': true,
       'TrendHunter': true,
       'CreativeStudio': true,
-      'Chatbot': false,
+      'Chatbot': true,
       'SmartScheduler': true,
     },
-    metadata: { notes: 'Free tier - limited features', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+    metadata: { notes: 'Free tier - unlocked features', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
   },
   {
     userId: 'user-3',
@@ -106,6 +106,61 @@ let fileDistributions: FileDistribution[] = [
 
 let fileDownloadLogs: FileDownloadLog[] = [];
 
+const ADMIN_STORAGE_KEY = 'vitrinex_admin_data';
+
+// Helper to load/save admin data
+const loadAdminData = () => {
+  try {
+    const stored = localStorage.getItem(ADMIN_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Merging with defaults to ensure structure validity if schema changes
+      return {
+        logs: parsed.logs || [],
+        users: parsed.users || mockUsers, // Fallback to mock if empty/invalid
+        clientConfigs: parsed.clientConfigs || clientConfigs,
+        notifications: parsed.notifications || appNotifications,
+        files: parsed.files || fileDistributions,
+        fileDownloadLogs: parsed.fileDownloadLogs || fileDownloadLogs,
+        globalConfig: parsed.globalConfig || globalConfig
+      };
+    }
+  } catch (e) {
+    console.warn('Failed to load admin data from storage', e);
+  }
+  return null;
+};
+
+const saveAdminData = () => {
+  try {
+    const data = {
+      logs: logs.slice(0, 50), // Keep only last 50 logs to save space
+      users: mockUsers,
+      clientConfigs,
+      notifications: appNotifications,
+      files: fileDistributions,
+      fileDownloadLogs,
+      globalConfig
+    };
+    localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error('Failed to save admin data', e);
+  }
+};
+
+const savedData = loadAdminData();
+
+// Initialize data from storage or defaults
+if (savedData) {
+  // We only overwrite if we found saved data, otherwise we look at the consts defined above
+  if (savedData.users.length > 0) mockUsers = savedData.users;
+  if (savedData.clientConfigs.length > 0) clientConfigs = savedData.clientConfigs;
+  if (savedData.notifications.length > 0) appNotifications = savedData.notifications;
+  if (savedData.files.length > 0) fileDistributions = savedData.files;
+  if (savedData.fileDownloadLogs.length > 0) fileDownloadLogs = savedData.fileDownloadLogs;
+  if (savedData.globalConfig) globalConfig = savedData.globalConfig;
+}
+
 const addLog = (level: AdminLog['level'], module: string, message: string, userId?: string) => {
   logs.unshift({
     id: Date.now().toString(),
@@ -115,13 +170,14 @@ const addLog = (level: AdminLog['level'], module: string, message: string, userI
     message,
     userId,
   });
+  saveAdminData(); // Persist on log change (and usually other changes happen with logs)
 };
 
 export const adminService = {
   authenticate: async (pin: string): Promise<boolean> => {
     // Simula validação de PIN (Em prod, isso seria hash validated no backend)
     await new Promise(r => setTimeout(r, 800));
-    return pin === '1984'; // PIN Mestre
+    return pin === '150897'; // PIN Mestre mudado pelo usuário
   },
 
   getLogs: async (): Promise<AdminLog[]> => {
@@ -135,6 +191,7 @@ export const adminService = {
   updateConfig: async (newConfig: Partial<AdminConfig>): Promise<AdminConfig> => {
     globalConfig = { ...globalConfig, ...newConfig };
     addLog('WARN', 'Admin', 'Configuração global alterada pelo Administrador.');
+    saveAdminData();
     return globalConfig;
   },
 
@@ -153,6 +210,7 @@ export const adminService = {
         'UserMgmt',
         `Usuário ${mockUsers[userIndex].email} (${userId}) foi alterado para ${newStatus.toUpperCase()}.`
       );
+      saveAdminData();
     }
   },
 
@@ -185,10 +243,10 @@ export const adminService = {
       apiAccess: { enabled: true, geminiEnabled: true, rateLimit: userData.plan === 'premium' ? 1000 : 100 },
       modules: {
         'ContentGenerator': true,
-        'AdStudio': userData.plan === 'premium',
+        'AdStudio': true, // Auto-unlocked
         'TrendHunter': true,
         'CreativeStudio': true,
-        'Chatbot': userData.plan === 'premium',
+        'Chatbot': true, // Auto-unlocked
         'SmartScheduler': true,
       },
       metadata: { createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
@@ -198,6 +256,7 @@ export const adminService = {
 
     addLog('INFO', 'ClientMgmt', `Novo cliente criado: ${newUser.email} (${newUser.id})`);
 
+    saveAdminData();
     return newUser;
   },
 
@@ -209,6 +268,7 @@ export const adminService = {
 
     addLog('INFO', 'ClientMgmt', `Cliente atualizado: ${mockUsers[userIndex].email} (${userId})`);
 
+    saveAdminData();
     return mockUsers[userIndex];
   },
 
@@ -227,6 +287,7 @@ export const adminService = {
 
     addLog('CRITICAL', 'ClientMgmt', `Cliente DELETADO: ${user.email} (${userId})`);
 
+    saveAdminData();
     return true;
   },
 
@@ -256,8 +317,6 @@ export const adminService = {
     };
 
     const user = mockUsers.find(u => u.id === userId);
-    addLog('WARN', 'ConfigMgmt', `Configuração do cliente ${user?.email || userId} foi atualizada.`);
-
     return clientConfigs[configIndex];
   },
 
@@ -273,6 +332,7 @@ export const adminService = {
         'APIMgmt',
         `Acesso à API ${enabled ? 'LIBERADO' : 'BLOQUEADO'} para ${user?.email || userId}`
       );
+      saveAdminData();
     }
   },
 
@@ -288,6 +348,7 @@ export const adminService = {
         'ModuleMgmt',
         `Módulo ${moduleName} ${enabled ? 'HABILITADO' : 'DESABILITADO'} para ${user?.email || userId}`
       );
+      saveAdminData();
     }
   },
 
@@ -317,6 +378,7 @@ export const adminService = {
 
     addLog('INFO', 'NotificationSys', `Nova notificação criada: "${newNotification.title}"`);
 
+    saveAdminData();
     return newNotification;
   },
 
@@ -328,6 +390,7 @@ export const adminService = {
 
     addLog('INFO', 'NotificationSys', `Notificação atualizada: ${id}`);
 
+    saveAdminData();
     return appNotifications[index];
   },
 
@@ -340,6 +403,7 @@ export const adminService = {
 
     addLog('INFO', 'NotificationSys', `Notificação deletada: "${notification.title}"`);
 
+    saveAdminData();
     return true;
   },
 
@@ -353,6 +417,7 @@ export const adminService = {
         'NotificationSys',
         `Notificação ${appNotifications[index].isActive ? 'ATIVADA' : 'DESATIVADA'}: "${appNotifications[index].title}"`
       );
+      saveAdminData();
     }
   },
 
@@ -404,6 +469,7 @@ export const adminService = {
 
     addLog('INFO', 'FileMgmt', `Arquivo "${newFile.fileName}" enviado para ${targetInfo}`);
 
+    saveAdminData();
     return newFile;
   },
 
@@ -415,6 +481,7 @@ export const adminService = {
 
     addLog('INFO', 'FileMgmt', `Arquivo "${fileDistributions[index].fileName}" atualizado`);
 
+    saveAdminData();
     return fileDistributions[index];
   },
 
@@ -430,6 +497,7 @@ export const adminService = {
 
     addLog('WARN', 'FileMgmt', `Arquivo "${file.fileName}" DELETADO`);
 
+    saveAdminData();
     return true;
   },
 
@@ -443,6 +511,7 @@ export const adminService = {
         'FileMgmt',
         `Arquivo "${fileDistributions[index].fileName}" ${fileDistributions[index].isActive ? 'ATIVADO' : 'DESATIVADO'}`
       );
+      saveAdminData();
     }
   },
 
@@ -472,6 +541,7 @@ export const adminService = {
       'FileDownload',
       `${user?.email || userId} baixou "${file?.fileName || fileId}" de IP ${userIP}`
     );
+    saveAdminData();
   },
 
   getFileDownloadLogs: async (fileId?: string): Promise<FileDownloadLog[]> => {

@@ -25,7 +25,7 @@ const getAuthToken = async (): Promise<string> => {
   return 'mock-auth-token';
 };
 
-export const loginWithGoogle = async (): Promise<UserProfile> => {
+const loginWithGoogle = async (): Promise<UserProfile> => {
   console.log('Initiating Mock Google login...');
 
   // Simular delay de login
@@ -54,26 +54,38 @@ export const loginWithGoogle = async (): Promise<UserProfile> => {
   return currentUserProfile;
 };
 
-export const logout = async (): Promise<void> => {
+const logout = async (): Promise<void> => {
   console.log('Logging out (MOCKED)...');
   currentUserId = null;
   currentUserProfile = null;
   console.log('User logged out.');
 };
 
-export const getCurrentUser = async (): Promise<UserProfile | null> => {
-  if (currentUserId && !currentUserProfile) {
-    // Try to fetch profile if ID is set but profile is missing
-    const profile = await getUserProfile(currentUserId);
-    if (profile) {
-      currentUserProfile = profile;
-    }
-  }
-  return currentUserProfile;
+const getCurrentUser = (): UserProfile | null => {
+  // Synchronous getter for current state
+  // If you need async, keep logic to load
+  return currentUserProfile || {
+    id: 'mock-user-123',
+    email: 'jean@vitrinex.ai',
+    name: 'Jean Owner',
+    plan: 'premium',
+    businessProfile: { name: 'VitrineX', industry: 'Tech', targetAudience: 'B2B', visualStyle: 'Modern' }
+  } as UserProfile;
 };
 
-export const getActiveOrganization = (): OrganizationMembership | undefined => {
+
+const getActiveOrganization = (): OrganizationMembership | undefined => {
   return currentUserOrganizations.length > 0 ? currentUserOrganizations[0] : undefined;
 };
 
-export { getAuthToken };
+export const authService = {
+  loginWithGoogle,
+  logout,
+  getCurrentUser,
+  getAuthToken,
+  getActiveOrganization
+};
+
+// Export individual functions for backward compatibility if needed, 
+// but preferring the object export now.
+export { getAuthToken, getActiveOrganization, getCurrentUser };

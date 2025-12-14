@@ -12,10 +12,12 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { TutorialProvider } from './contexts/TutorialContext';
+import { remoteControlService, SystemStatus } from './services/remoteControlService';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { KeyIcon, CheckCircleIcon, PlayIcon } from '@heroicons/react/24/outline';
+import { KeyIcon, CheckCircleIcon, PlayIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { testGeminiConnection } from './services/geminiService';
 import { HARDCODED_API_KEY } from './constants';
+import NavigationControls from './components/NavigationControls';
 
 // Lazy load all page components for code splitting
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
@@ -31,6 +33,9 @@ const Settings = React.lazy(() => import('./pages/Settings'));
 const Chatbot = React.lazy(() => import('./pages/Chatbot'));
 // Lazy load Admin Console
 const AdminConsole = React.lazy(() => import('./pages/AdminConsole'));
+const PartnerHub = React.lazy(() => import('./pages/PartnerHub')); // NEW
+const MediaLibrary = React.lazy(() => import('./pages/MediaLibrary')); // NEW
+const AnimationLibrary = React.lazy(() => import('./pages/AnimationLibrary')); // NEW
 
 export type ModuleName =
   | 'Dashboard'
@@ -44,6 +49,9 @@ export type ModuleName =
   | 'SmartScheduler'
   | 'Settings'
   | 'Chatbot'
+  | 'PartnerHub'     // NEW
+  | 'MediaLibrary'   // NEW
+  | 'AnimationLibrary' // NEW
   | 'Admin'; // Added Admin type
 
 const queryClient = new QueryClient({
@@ -146,10 +154,43 @@ function AppContent() {
       case 'SmartScheduler': return <SmartScheduler />;
       case 'Chatbot': return <Chatbot />;
       case 'Settings': return <Settings />;
+      case 'PartnerHub': return <PartnerHub />;         // NEW
+      case 'MediaLibrary': return <MediaLibrary />;     // NEW
+      case 'AnimationLibrary': return <AnimationLibrary />; // NEW
       case 'Admin': return <AdminConsole />;
       default: return <Dashboard />;
     }
   };
+
+  const [isSystemActive, setIsSystemActive] = useState(true);
+  const [systemMessage, setSystemMessage] = useState('');
+
+  // Remote Kill Switch Check
+  useEffect(() => {
+    const checkStatus = async () => {
+      const status: SystemStatus = await remoteControlService.checkStatus();
+      if (!status.active) {
+        setIsSystemActive(false);
+        setSystemMessage(status.message || 'Sistema temporariamente indisponível.');
+      }
+    };
+
+    checkStatus(); // Initial check
+    const interval = setInterval(checkStatus, 300000); // Check every 5 minutes
+    return () => clearInterval(interval);
+  }, []);
+
+  // System Locked Screen
+  if (!isSystemActive) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-background p-6 text-center z-50 fixed inset-0">
+        <ExclamationTriangleIcon className="w-16 h-16 text-red-500 mb-4 animate-pulse" />
+        <h1 className="text-2xl font-bold text-title mb-2">Acesso Suspenso</h1>
+        <p className="text-body max-w-md mx-auto">{systemMessage}</p>
+        <p className="text-xs text-muted mt-8">Código de erro: REM_LK_01</p>
+      </div>
+    );
+  }
 
   if (loadingApiKeyCheck) {
     return (
@@ -242,12 +283,17 @@ function AppContent() {
             activeModule={activeModule}
             setActiveModule={setActiveModule}
           />
-          <main className={`flex-1 flex flex-col min-w-0 relative overflow-x-hidden ${isFullHeightModule
+
+          <main className={`flex-1 flex flex-col min-w-0 relative ${isFullHeightModule
             ? 'h-full'
-            // REQUISITO: Garante que haja rolagem vertical e um padding generoso na parte inferior
-            // Ajustado pb-24 para mobile (BottomNav) e pb-16 para desktop
-            : 'overflow-y-auto pb-24 md:pb-16'
+            : 'h-full overflow-y-auto pb-24 md:pb-16 scroll-smooth'
             }`}>
+
+            {/* Global Navigation Controls (Floating Top-Right) */}
+            <div className="absolute top-4 right-4 z-40 flex gap-2">
+              <NavigationControls />
+            </div>
+
             <Suspense fallback={
               <div className="flex-1 flex items-center justify-center">
                 <LoadingSpinner />

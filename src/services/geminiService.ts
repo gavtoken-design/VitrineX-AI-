@@ -16,6 +16,7 @@ import {
 } from '@google/genai';
 import {
   GEMINI_FLASH_MODEL,
+  GEMINI_TOOLS_MODEL,
   GEMINI_PRO_MODEL,
   GEMINI_IMAGE_FLASH_MODEL,
   GEMINI_IMAGE_PRO_MODEL,
@@ -23,6 +24,8 @@ import {
   GEMINI_LIVE_AUDIO_MODEL,
   GEMINI_TTS_MODEL,
   HARDCODED_API_KEY,
+  VITRINEX_SYSTEM_INSTRUCTION,
+  IMAGE_PROMPT_ENHANCEMENT,
 } from '../constants';
 import {
   UserProfile,
@@ -34,21 +37,29 @@ import {
   KnowledgeBaseQueryResponse,
   OrganizationMembership,
 } from '../types';
-import { getAuthToken, getActiveOrganization } from './authService';
+import { getAuthToken, getActiveOrganization, getCurrentUser } from './authService';
+import { generateEnhancedSystemInstruction } from './appKnowledgeBase';
+import { trackUsage } from './usageTracker';
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 const LOCAL_KB_STORAGE_KEY = 'vitrinex_kb_local_content';
 
-async function getApiKey(): Promise<string> {
+async function getApiKey(type: 'standard' | 'vertex' = 'standard'): Promise<string> {
+  if (type === 'vertex') {
+    const vertexKey = localStorage.getItem('vitrinex_vertex_api_key');
+    if (vertexKey) return vertexKey;
+    // Fallback: If no specific Vertex key, try the standard one (it might be a singular Pro key)
+  }
+
   const localKey = localStorage.getItem('vitrinex_gemini_api_key');
   if (localKey) return localKey;
-  if (process.env.API_KEY) return process.env.API_KEY;
+
   if (HARDCODED_API_KEY) return HARDCODED_API_KEY;
   throw new Error('Chave de API não encontrada.');
 }
 
-async function getGenAIClient(explicitKey?: string): Promise<GoogleGenAI> {
-  const apiKey = explicitKey || await getApiKey();
+async function getGenAIClient(explicitKey?: string, type: 'standard' | 'vertex' = 'standard'): Promise<GoogleGenAI> {
+  const apiKey = explicitKey || await getApiKey(type);
   return new GoogleGenAI({ apiKey });
 }
 
@@ -58,13 +69,14 @@ const getActiveOrganizationId = (): string => {
   return activeOrg ? activeOrg.organization.id : 'mock-org-default';
 };
 
-async function proxyFetch<T>(endpoint: string, method: string, body: any): Promise<T> {
+async function proxyFetch<T>(endpoint: string, method: string, body: any, signal?: AbortSignal): Promise<T> {
   const organizationId = getActiveOrganizationId();
   const idToken = await getAuthToken();
   const response = await fetch(`${BACKEND_URL}/organizations/${organizationId}/ai-proxy/${endpoint}`, {
     method,
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
     body: JSON.stringify(body),
+    signal,
   });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ message: 'Failed to parse error response' }));
@@ -76,7 +88,7 @@ async function proxyFetch<T>(endpoint: string, method: string, body: any): Promi
 export const testGeminiConnection = async (explicitKey?: string): Promise<string> => {
   const ai = await getGenAIClient(explicitKey);
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-2.5-flash-lite",
     contents: "Explain how AI works in a few words",
   });
   return response.text || 'No response text received';
@@ -89,23 +101,87 @@ export interface GenerateTextOptions {
   responseSchema?: any;
   tools?: Tool[];
   thinkingBudget?: number;
+  useThinkingMode?: boolean; // NEW: Explicit toggle for Thinking Mode
+  signal?: AbortSignal;
 }
 
+const getTrackableUserId = (): string => {
+  const user = getCurrentUser();
+  return user ? user.id : 'mock-user-123';
+};
+
 export const generateText = async (prompt: string, options?: GenerateTextOptions): Promise<string> => {
+  trackUsage(getTrackableUserId(), 'text');
+
+  // Fetch user profile for context (Merchant Reality)
+  const userId = 'mock-user-123'; // In prod, get from auth context
+  let userProfile: any;
+
   try {
+    try {
+      // Dynamic import to avoid circular dependency if dbService imports geminiService
+      const { getUserProfile } = await import('./dbService');
+      userProfile = await getUserProfile(userId);
+    } catch (e) { console.warn("Could not load user profile for context", e); }
+
+    // --- THINKING MODE AND MODEL LOGIC ---
+    let finalModel = options?.model || GEMINI_FLASH_MODEL;
+    let generationConfig: any = { ...options };
+
+    // If Thinking Mode is enabled, switch to experimental model and add thinking config
+    if (options?.useThinkingMode) {
+      finalModel = "gemini-2.0-flash-exp";
+      generationConfig.thinking_config = {
+        thinking_budget: 4096,
+        thinking_level: "HIGH"
+      };
+      // Note: 'thinking_config' might require specific API versions or vertex logic
+    }
+
+    // Select correct key type based on options (Thinking Mode implies Vertex/Advanced usage)
+    const keyType = options?.useThinkingMode ? 'vertex' : 'standard';
+
     const response = await proxyFetch<any>('call-gemini', 'POST', {
-      model: options?.model || GEMINI_FLASH_MODEL,
+      model: finalModel,
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: options,
-    });
+      config: {
+        ...generationConfig,
+        systemInstruction: options?.systemInstruction || generateEnhancedSystemInstruction(undefined, userProfile) || VITRINEX_SYSTEM_INSTRUCTION,
+      },
+    }, options?.signal);
     return response.response?.text || '';
-  } catch (error) {
+  } catch (error: any) {
+    if (error.name === 'AbortError') throw error;
     console.warn("Backend proxy failed for generateText, falling back to client-side SDK.", error);
-    const ai = await getGenAIClient();
+
+    // Select correct key type based on options
+    const keyType = options?.useThinkingMode ? 'vertex' : 'standard';
+    const ai = await getGenAIClient(undefined, keyType);
+
+    // Prepare config for Client SDK
+    // Note: The google-genai SDK types for thinking_config might vary, treating as 'any' for safety here or constructing carefully
+    const sdkConfig: any = {
+      ...options,
+      systemInstruction: options?.systemInstruction || generateEnhancedSystemInstruction(undefined, userProfile) || VITRINEX_SYSTEM_INSTRUCTION,
+      tools: [{ googleSearch: {} }]
+    };
+
+    let clientModel = options?.model || GEMINI_FLASH_MODEL;
+    if (options?.useThinkingMode) {
+      clientModel = "gemini-2.0-flash-exp";
+      // SDK specific thinking config structure if different, assume matching API spec for now or omit if SDK doesn't support it typed yet
+      // The user snippet suggests: config = types.GenerateContentConfig(thinking_config=...)
+      // In JS SDK this usually maps to the config object passed to generateContent
+      sdkConfig.thinkingConfig = {
+        thinkingBudget: 4096,
+        thinkingLevel: "HIGH"
+      };
+    }
+
     const response = await ai.models.generateContent({
-      model: options?.model || GEMINI_FLASH_MODEL,
+      model: clientModel,
       contents: prompt,
-      config: options,
+      config: sdkConfig,
     });
     return response.text || '';
   }
@@ -116,13 +192,22 @@ export interface GenerateImageOptions {
   aspectRatio?: string;
   imageSize?: string;
   tools?: Tool[];
+  signal?: AbortSignal;
+  useVertexHighQuality?: boolean; // NEW: Explicit toggle
 }
 
 export const generateImage = async (prompt: string, options?: GenerateImageOptions): Promise<{ imageUrl?: string; text?: string }> => {
-  const model = options?.model || GEMINI_IMAGE_FLASH_MODEL;
+  trackUsage(getTrackableUserId(), 'image');
 
-  // FIX: imageSize is ONLY supported by Gemini 3 Pro Image (gemini-3-pro-image-preview).
-  // Sending it to Flash Image (gemini-2.5-flash-image) causes INVALID_ARGUMENT (400).
+  // Logic: If Vertex High Quality is requested, we FORCE the Pro model and specific enhancements.
+  // Otherwise we respect the passed model (usually Flash) for economy.
+  const model = options?.useVertexHighQuality ? GEMINI_IMAGE_PRO_MODEL : (options?.model || GEMINI_IMAGE_FLASH_MODEL);
+
+  const enhancedPrompt = options?.useVertexHighQuality
+    ? `${prompt} ${IMAGE_PROMPT_ENHANCEMENT} photorealistic, 8k, highly detailed`
+    : `${prompt} ${IMAGE_PROMPT_ENHANCEMENT}`;
+
+  // FIX: imageSize is ONLY supported by Gemini 3 Pro Image.
   const imageConfig: any = {
     aspectRatio: options?.aspectRatio,
   };
@@ -133,19 +218,23 @@ export const generateImage = async (prompt: string, options?: GenerateImageOptio
 
   try {
     const response = await proxyFetch<any>('generate-image', 'POST', {
-      prompt,
+      prompt: enhancedPrompt,
       model,
       imageConfig,
       options: {},
-    });
+    }, options?.signal);
     return { imageUrl: `data:${response.mimeType};base64,${response.base64Image}` };
-  } catch (error) {
+  } catch (error: any) {
+    if (error.name === 'AbortError') throw error;
     console.warn("Backend proxy failed for generateImage, falling back to client-side SDK.", error);
-    const ai = await getGenAIClient();
+
+    // Select correct key type based on options
+    const keyType = options?.useVertexHighQuality ? 'vertex' : 'standard';
+    const ai = await getGenAIClient(undefined, keyType);
 
     const response = await ai.models.generateContent({
       model,
-      contents: { parts: [{ text: prompt }] },
+      contents: { parts: [{ text: enhancedPrompt }] },
       config: {
         imageConfig
       } as any
@@ -164,18 +253,20 @@ export const generateImage = async (prompt: string, options?: GenerateImageOptio
   }
 };
 
-export const editImage = async (prompt: string, base64ImageData: string, mimeType: string, model: string = GEMINI_IMAGE_FLASH_MODEL): Promise<{ imageUrl?: string; text?: string }> => {
+export const editImage = async (prompt: string, base64ImageData: string, mimeType: string, model: string = GEMINI_IMAGE_FLASH_MODEL, signal?: AbortSignal): Promise<{ imageUrl?: string; text?: string }> => {
+  trackUsage(getTrackableUserId(), 'image');
   try {
     const response = await proxyFetch<any>('call-gemini', 'POST', {
       model,
       contents: [{ role: 'user', parts: [{ inlineData: { data: base64ImageData, mimeType } }, { text: prompt }] }],
-    });
+    }, signal);
     const imagePart = response.response?.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
     if (imagePart) {
       return { imageUrl: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}` };
     }
     return { text: response.response?.text || 'Nenhuma edição retornada.' };
-  } catch (error) {
+  } catch (error: any) {
+    if (error.name === 'AbortError') throw error;
     console.warn("Backend proxy failed for editImage, falling back to client-side SDK.", error);
     const ai = await getGenAIClient();
     const response = await ai.models.generateContent({
@@ -206,6 +297,7 @@ export interface GenerateVideoOptions {
 }
 
 export const generateVideo = async (prompt: string, options?: GenerateVideoOptions): Promise<string> => {
+  trackUsage(getTrackableUserId(), 'video');
   try {
     const response = await proxyFetch<{ videoUri: string }>('generate-video', 'POST', {
       prompt,
@@ -270,29 +362,56 @@ export const queryArchitect = async (query: string): Promise<string> => {
 
 export const searchTrends = async (query: string, language: string = 'en-US'): Promise<Trend[]> => {
   const prompt = language === 'pt-BR'
-    ? `Encontre as tendências de marketing atuais para "${query}". Forneça um resumo detalhado em português.`
-    : `Find current marketing trends for "${query}". Provide a detailed summary.`;
+    ? `Encontre as tendências de marketing atuais para "${query}". Forneça um resumo detalhado em português e cite as fontes.`
+    : `Find current marketing trends for "${query}". Provide a detailed summary and cite sources.`;
 
   try {
+    // Attempt to use Backend Proxy if available (Vertex AI Search)
     const response = await proxyFetch<any>('call-gemini', 'POST', {
-      model: GEMINI_FLASH_MODEL,
+      model: GEMINI_TOOLS_MODEL, // Use robust model for grounding
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: { tools: [{ googleSearch: {} }] },
+      config: {
+        tools: [{ googleSearch: {} }], // ACTIVATES VERTEX AI GROUNDING
+        groundingConfig: { semanticSearch: true } // Attempt enterprise search if configured
+      },
     });
     const text = response.response?.text;
     const groundingMetadata = response.response?.candidates?.[0]?.groundingMetadata;
-    return [{ id: `trend-${Date.now()}`, query, score: 85, data: text || '', sources: groundingMetadata?.groundingChunks?.map((c: any) => c.web) || [], createdAt: new Date().toISOString(), userId: 'mock-user-123' }];
+
+    // Extract sources from grounding metadata
+    const sources = groundingMetadata?.groundingChunks?.map((c: any) => c.web?.uri || c.web?.title).filter(Boolean) || [];
+
+    return [{
+      id: `trend-${Date.now()}`,
+      query,
+      score: 85,
+      data: text || '',
+      sources: sources,
+      createdAt: new Date().toISOString(),
+      userId: 'mock-user-123'
+    }];
   } catch (error) {
     console.warn("Backend proxy failed for searchTrends, falling back to client-side SDK.", error);
+    // Client-side fallback with standard Google Search Tool
     const ai = await getGenAIClient();
     const response = await ai.models.generateContent({
-      model: GEMINI_FLASH_MODEL,
+      model: GEMINI_TOOLS_MODEL, // Use robust model for grounding
       contents: prompt,
       config: { tools: [{ googleSearch: {} }] }
     });
     const text = response.text;
     const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
-    return [{ id: `trend-${Date.now()}`, query, score: 85, data: text || '', sources: groundingMetadata?.groundingChunks?.map((c: any) => c.web) || [], createdAt: new Date().toISOString(), userId: 'mock-user-123' }];
+    const sources = groundingMetadata?.groundingChunks?.map((c: any) => c.web?.uri).filter(Boolean) || [];
+
+    return [{
+      id: `trend-${Date.now()}`,
+      query,
+      score: 85,
+      data: text || '',
+      sources: sources,
+      createdAt: new Date().toISOString(),
+      userId: 'mock-user-123'
+    }];
   }
 };
 
@@ -323,7 +442,8 @@ export const campaignBuilder = async (campaignPrompt: string): Promise<{ campaig
 
 export const aiManagerStrategy = async (prompt: string, userProfile: UserProfile['businessProfile']): Promise<{ strategyText: string; suggestions: string[] }> => {
   const systemInstruction = `You are a marketing expert...`;
-  const response = await generateText(prompt, { model: GEMINI_FLASH_MODEL, systemInstruction, tools: [{ googleSearch: {} }], thinkingBudget: 2048 });
+  // Enable Thinking Mode for Strategy to allow deep reasoning (Model will switch to gemini-2.0-flash-exp)
+  const response = await generateText(prompt, { model: GEMINI_FLASH_MODEL, systemInstruction, tools: [{ googleSearch: {} }], thinkingBudget: 2048, useThinkingMode: true });
   return { strategyText: response, suggestions: ["Suggestion 1", "Suggestion 2"] };
 };
 
@@ -367,7 +487,10 @@ export const sendMessageToChat = async (
       prompt: typeof message === 'string' ? message : message.find(p => typeof p === 'string') || '',
       history: history.map(m => ({ role: m.role, parts: [{ text: m.text }] })),
       model: options.model || GEMINI_PRO_MODEL,
-      options: { systemInstruction: options.systemInstruction },
+      options: {
+        systemInstruction: options.systemInstruction,
+        tools: [{ googleSearch: {} }] // Enable Grounding
+      },
     };
 
     const response = await fetch(`${BACKEND_URL}/organizations/${organizationId}/ai-proxy/stream-text`, {

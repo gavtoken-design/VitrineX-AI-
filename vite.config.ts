@@ -7,24 +7,40 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
+    build: {
+      outDir: 'dist',
+      assetsDir: 'assets',
+      emptyOutDir: true,
+      sourcemap: false,
+      chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom'],
+            'gemini': ['@google/genai'],
+          }
+        }
+      }
+    },
     server: {
       port: 3000,
-      host: '0.0.0.0',
+      host: 'localhost', // Changed from 0.0.0.0 to avoid Windows Firewall popups
     },
+    base: './',
     plugins: [
       react(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+        includeAssets: ['icon.svg', '.htaccess'],
         manifest: {
-          name: 'VitrineX AI',
-          short_name: 'VitrineX',
-          description: 'Automação de Marketing com IA para suas Vendas',
-          theme_color: '#4f46e5',
+          name: 'VitrineX AI - Automação de Marketing com IA',
+          short_name: 'VitrineX AI',
+          description: 'Plataforma completa de automação de marketing movida por IA. Crie conteúdo, anúncios e campanhas com Google Gemini.',
+          theme_color: '#4F46E5',
           background_color: '#ffffff',
           display: 'standalone',
-          scope: '/',
-          start_url: '/',
+          scope: './',
+          start_url: './',
           orientation: 'portrait',
           icons: [
             {
@@ -32,28 +48,20 @@ export default defineConfig(({ mode }) => {
               sizes: 'any',
               type: 'image/svg+xml',
               purpose: 'any maskable'
-            },
-            {
-              src: 'pwa-192x192.png',
-              sizes: '192x192',
-              type: 'image/png'
-            },
-            {
-              src: 'pwa-512x512.png',
-              sizes: '512x512',
-              type: 'image/png'
             }
           ]
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // Aumentar limite para 5MB devido a arquivos grandes
+          globPatterns: ['**/*.{js,css,html,svg,json}'],
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        },
+        devOptions: {
+          enabled: false
         }
       })
     ],
     define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+      // process.env usage removed in favor of import.meta.env
     },
     resolve: {
       alias: {

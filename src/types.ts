@@ -10,12 +10,16 @@ export interface BusinessProfile {
   industry: string;
   targetAudience: string;
   visualStyle: string;
+  location?: string; // City/State for local context
+  brandPersonality?: string; // Open text for brand voice
+  logoUrl?: string; // Base64 or URL of the client logo
 }
 
 // Define UserProfile interface
 export interface UserProfile {
   id: string;
   email: string;
+  phone?: string; // Contact phone
   name?: string; // Added name property
   plan: 'free' | 'premium';
   businessProfile: BusinessProfile;

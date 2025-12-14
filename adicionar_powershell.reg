@@ -1,0 +1,17 @@
+Windows Registry Editor Version 5.00
+
+; Adiciona "Abrir PowerShell Aqui" no menu de contexto de Pastas
+[HKEY_CLASSES_ROOT\Directory\shell\powershell]
+@="Abrir PowerShell Aqui"
+"Icon"="powershell.exe"
+
+[HKEY_CLASSES_ROOT\Directory\shell\powershell\command]
+@="powershell.exe -NoExit -Command Set-Location -LiteralPath '%L'"
+
+; Adiciona "Abrir PowerShell Aqui" no menu de contexto do Fundo (Background)
+[HKEY_CLASSES_ROOT\Directory\Background\shell\powershell]
+@="Abrir PowerShell Aqui"
+"Icon"="powershell.exe"
+
+[HKEY_CLASSES_ROOT\Directory\Background\shell\powershell\command]
+@="powershell.exe -NoExit -Command Set-Location -LiteralPath '%V'"

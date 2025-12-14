@@ -1,14 +1,15 @@
 
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Textarea from '../components/Textarea';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { campaignBuilder } from '../services/geminiService';
 import { saveCampaign } from '../services/firestoreService';
-import { Campaign } from '../types';
-import { useNavigate } from '../hooks/useNavigate'; // Custom hook for navigation
+import { Campaign, UserProfile } from '../types'; // Import UserProfile
+import { useNavigate } from '../hooks/useNavigate';
 import { useToast } from '../contexts/ToastContext';
+import { getCurrentUser } from '../services/authService'; // Import auth service
 
 const CampaignBuilder: React.FC = () => {
   const [campaignPrompt, setCampaignPrompt] = useState<string>('');
@@ -16,8 +17,16 @@ const CampaignBuilder: React.FC = () => {
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
   const { navigateTo } = useNavigate();
   const { addToast } = useToast();
+
+  useEffect(() => {
+    // Fetch user profile to personalize campaign
+    getCurrentUser().then(setUserProfile);
+  }, []);
 
   const handleCreateCampaign = useCallback(async () => {
     if (!campaignPrompt.trim()) {
@@ -31,7 +40,22 @@ const CampaignBuilder: React.FC = () => {
     setGeneratedVideoUrl(null);
 
     try {
-      const { campaign, videoUrl } = await campaignBuilder(campaignPrompt);
+      // Inject Business Context
+      let finalPrompt = campaignPrompt;
+      if (userProfile?.businessProfile) {
+        const bp = userProfile.businessProfile;
+        finalPrompt = `
+Context: Use the following Business Profile for tone and strategy:
+- Business Name: ${bp.name}
+- Industry: ${bp.industry}
+- Target Audience: ${bp.targetAudience}
+- Visual/Brand Style: ${bp.visualStyle}
+
+Campaign Request: ${campaignPrompt}
+`;
+      }
+
+      const { campaign, videoUrl } = await campaignBuilder(finalPrompt);
       setGeneratedCampaign(campaign);
       setGeneratedVideoUrl(videoUrl);
       addToast({ type: 'success', title: 'Sucesso!', message: `Campanha "${campaign.name}" criada e salva com sucesso!` });
@@ -65,7 +89,7 @@ const CampaignBuilder: React.FC = () => {
 
   const handleAddCalendar = useCallback(() => {
     if (generatedCampaign) {
-      navigateTo('SmartScheduler'); 
+      navigateTo('SmartScheduler');
       addToast({ type: 'info', message: `Navegando para o calendário para agendar a campanha "${generatedCampaign.name}".` });
     } else {
       addToast({ type: 'warning', message: 'Nenhuma campanha gerada para adicionar ao calendário.' });

@@ -23,24 +23,24 @@ const MobileNavMenu: React.FC<MobileNavMenuProps> = ({ isOpen, onClose, activeMo
     <div className="md:hidden">
       {/* Overlay */}
       {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 transition-opacity" 
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] transition-opacity"
           onClick={onClose}
           aria-hidden="true"
         ></div>
       )}
 
       {/* Painel Deslizante - Adicionado flex flex-col */}
-      <aside className={`fixed top-0 left-0 h-full w-72 bg-surface border-r border-border z-40
+      <aside className={`fixed top-0 left-0 h-full w-72 bg-surface border-r border-border z-[61]
         transform transition-transform duration-300 ease-in-out shadow-2xl flex flex-col
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        
+
         {/* Cabeçalho fixo no topo do flex container */}
         <div className="flex justify-between items-center p-4 border-b border-border/50 flex-shrink-0">
-            <span className="font-bold text-lg text-title ml-2">Menu</span>
-            <button onClick={onClose} className="p-2 text-muted hover:text-title hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
-                <XMarkIcon className="w-6 h-6" />
-            </button>
+          <span className="font-bold text-lg text-title ml-2">Menu</span>
+          <button onClick={onClose} className="p-2 text-muted hover:text-title hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+            <XMarkIcon className="w-6 h-6" />
+          </button>
         </div>
 
         {/* Área de navegação rolável - Usa flex-1 para ocupar o espaço restante */}
@@ -51,16 +51,16 @@ const MobileNavMenu: React.FC<MobileNavMenuProps> = ({ isOpen, onClose, activeMo
                 <div className={`px-4 pb-2 text-[11px] font-bold text-muted uppercase tracking-widest opacity-80 ${sectionIndex === 0 ? 'pt-2' : 'pt-8'}`}>
                   {t(section.section)}
                 </div>
-                
+
                 <div className="flex flex-col gap-[10px]">
                   {section.items.map(item => (
-                    <NavItem 
-                      key={item.name} 
+                    <NavItem
+                      key={item.name}
                       id={item.id}
-                      name={item.name as ModuleName} 
-                      label={item.label} 
-                      icon={item.icon} 
-                      activeModule={activeModule} 
+                      name={item.name as ModuleName}
+                      label={item.label}
+                      icon={item.icon}
+                      activeModule={activeModule}
                       setActiveModule={setActiveModule}
                       onNavigate={handleNavigate}
                     />

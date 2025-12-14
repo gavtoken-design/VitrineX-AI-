@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { LibraryItem } from '../types';
 import { getLibraryItems, deleteLibraryItem, saveLibraryItem } from '../services/dbService';
 import { uploadFile } from '../services/cloudStorageService';
+import { PLACEHOLDER_IMAGE_BASE64 } from '../constants';
 import { createFileSearchStore, uploadFileToSearchStore } from '../services/geminiService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Button from '../components/Button';
@@ -11,6 +12,8 @@ import { useMediaActions } from '../hooks/useMediaActions';
 import { TrashIcon, ArrowDownTrayIcon, ShareIcon, DocumentTextIcon, MusicalNoteIcon, CircleStackIcon, CloudArrowUpIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from '../hooks/useNavigate';
 import { useToast } from '../contexts/ToastContext';
+import FileDownloadCenter from '../components/FileDownloadCenter';
+import GoogleDriveIntegration from '../components/GoogleDriveIntegration';
 
 const ContentLibrary: React.FC = () => {
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
@@ -21,6 +24,7 @@ const ContentLibrary: React.FC = () => {
 
   const [kbLoading, setKbLoading] = useState<boolean>(false);
   const [kbStoreName, setKbStoreName] = useState<string | null>(localStorage.getItem('vitrinex_kb_name'));
+  const [activeTab, setActiveTab] = useState<'gallery' | 'received' | 'drive'>('gallery');
 
   const { navigateTo } = useNavigate();
   const { addToast } = useToast();
@@ -142,177 +146,232 @@ const ContentLibrary: React.FC = () => {
     fetchLibrary();
   }, [fetchLibrary]);
 
+
   return (
     <div className="container mx-auto py-8 lg:py-10">
-      <h2 className="text-3xl font-bold text-textdark mb-8">Biblioteca de Conteúdo</h2>
+      <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
+        <h2 className="text-3xl font-bold text-textdark">Biblioteca de Conteúdo</h2>
 
-      <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-6 rounded-lg shadow-md border border-gray-700 mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div>
-          <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-            <CircleStackIcon className="w-6 h-6 text-accent" /> Base de Conhecimento (IA)
-          </h3>
-          <p className="text-sm text-gray-300 mt-1">
-            {kbStoreName ?
-              `Conectado a: ${kbStoreName}. Arquivos enviados podem ser pesquisados pelo Chatbot.` :
-              "Crie um repositório para indexar seus arquivos e permitir que a IA responda com base neles."
-            }
-          </p>
-        </div>
-        <div>
-          {!kbStoreName ? (
-            <Button onClick={handleCreateKnowledgeBase} isLoading={kbLoading} variant="secondary">
-              Criar Base de Conhecimento
-            </Button>
-          ) : (
-            <span className="text-xs font-mono bg-black/30 px-3 py-1 rounded text-accent border border-accent/20">
-              Status: Ativo
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="bg-lightbg p-6 rounded-lg shadow-sm border border-gray-800 mb-8">
-        <h3 className="text-xl font-semibold text-textlight mb-5">Gerenciar Conteúdo</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <Input
-            id="searchContent"
-            type="text"
-            placeholder="Buscar por nome..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="col-span-1 md:col-span-2"
-          />
-          <div>
-            <label htmlFor="tagFilter" className="sr-only">Filtrar por Tag</label>
-            <select
-              id="tagFilter"
-              value={selectedTag}
-              onChange={(e) => setSelectedTag(e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm bg-lightbg text-textdark focus:outline-none focus:ring-2 focus:ring-neonGreen focus:border-neonGreen focus:ring-offset-2 focus:ring-offset-lightbg sm:text-sm"
-            >
-              <option value="all">Todas as Tags</option>
-              {allTags.map(tag => (
-                <option key={tag} value={tag}>{tag}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <label
-            htmlFor="file-upload-input"
-            className={`cursor-pointer inline-flex items-center justify-center px-5 py-2 text-base font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition duration-200 ease-in-out w-full sm:w-auto
-              ${uploading ? 'opacity-60 cursor-not-allowed bg-accent text-darkbg' : 'bg-accent text-darkbg shadow-lg shadow-accent/50 hover:bg-neonGreen/80 focus:ring-neonGreen focus:ring-offset-lightbg'}`}
+        {/* TAB NAVIGATION */}
+        <div className="flex space-x-2 bg-gray-900 p-1 rounded-lg border border-gray-800">
+          <button
+            onClick={() => setActiveTab('gallery')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'gallery' ? 'bg-primary text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`}
           >
-            {uploading ? <LoadingSpinner /> : 'Enviar Arquivo'}
-            <input
-              id="file-upload-input"
-              type="file"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-          </label>
-          {hasActiveFilters && (
-            <Button variant="primary" onClick={handleClearFilters} className="w-full sm:w-auto">
-              Limpar Filtros
-            </Button>
-          )}
+            Minha Galeria
+          </button>
+          <button
+            onClick={() => setActiveTab('received')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'received' ? 'bg-primary text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`}
+          >
+            Arquivos Recebidos
+          </button>
+          <button
+            onClick={() => setActiveTab('drive')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'drive' ? 'bg-primary text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`}
+          >
+            Google Drive
+          </button>
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center h-48">
-          <LoadingSpinner />
-          <p className="ml-2 text-textlight">Carregando biblioteca...</p>
+      {activeTab === 'received' ? (
+        <div className="animate-fade-in">
+          <div className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 p-6 rounded-lg shadow-md border border-purple-900/50 mb-8">
+            <h3 className="text-xl font-semibold text-white mb-2">Materiais de Apoio & Distribuição</h3>
+            <p className="text-sm text-gray-300">
+              Aqui você encontra ebooks, guias, contratos e outros materiais enviados pela administração da VitrineX.
+            </p>
+          </div>
+          <FileDownloadCenter />
         </div>
-      ) : filteredItems.length === 0 ? (
-        <div className="bg-lightbg p-6 rounded-lg shadow-sm border border-gray-800 text-center text-textlight">
-          Nenhum item encontrado na biblioteca.
+      ) : activeTab === 'drive' ? (
+        <div className="animate-fade-in">
+          <div className="bg-gradient-to-r from-blue-900/40 to-green-900/40 p-6 rounded-lg shadow-md border border-blue-900/50 mb-8">
+            <h3 className="text-xl font-semibold text-white mb-2">Google Drive Pessoal</h3>
+            <p className="text-sm text-gray-300">
+              Conecte seu Google Drive para salvar seus criativos diretamente na nuvem.
+            </p>
+          </div>
+          <GoogleDriveIntegration />
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-          {filteredItems.map((item) => (
-            <div key={item.id} className="bg-lightbg rounded-lg shadow-sm border border-gray-800 overflow-hidden group">
-              <div className="relative h-48 bg-gray-900 flex items-center justify-center overflow-hidden">
-                {item.type === 'image' || item.type === 'video' ? (
-                  <img
-                    src={item.thumbnail_url || item.file_url || 'https://picsum.photos/200/150'}
-                    alt={item.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : item.type === 'audio' ? (
-                  <div className="text-gray-500 text-center p-4">
-                    <MusicalNoteIcon className="w-12 h-12 mx-auto mb-2 text-primary" />
-                    <p className="text-sm text-textlight">Arquivo de Áudio</p>
-                  </div>
-                ) : (
-                  <div className="text-gray-500 text-center p-4">
-                    <DocumentTextIcon className="w-12 h-12 mx-auto mb-2 text-primary" />
-                    <p className="text-sm text-textlight">Arquivo de Texto</p>
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 gap-2">
-                  <Button
-                    onClick={() => handleDownload(item.file_url, item.name)}
-                    variant="ghost"
-                    size="sm"
-                    className="text-white hover:bg-primary/20"
-                    title="Baixar"
-                    disabled={isProcessing}
-                  >
-                    <ArrowDownTrayIcon className="w-5 h-5 text-accent" />
-                  </Button>
-                  <Button
-                    onClick={() => handleShareItem(item)}
-                    variant="ghost"
-                    size="sm"
-                    className="text-white hover:bg-primary/20"
-                    title="Compartilhar"
-                    disabled={isProcessing}
-                  >
-                    <ShareIcon className="w-5 h-5 text-accent" />
-                  </Button>
-                  <Button
-                    onClick={() => navigateTo('SmartScheduler')}
-                    variant="ghost"
-                    size="sm"
-                    className="text-white hover:bg-primary/20"
-                    title="Usar no Calendário"
-                  >
-                    <CalendarDaysIcon className="w-5 h-5 text-accent" />
-                  </Button>
-                  <Button
-                    onClick={() => handleDeleteItem(item.id)}
-                    variant="danger"
-                    size="sm"
-                    className="text-white hover:bg-red-700"
-                    title="Excluir"
-                  >
-                    <TrashIcon className="w-5 h-5 text-red-400" />
-                  </Button>
-                </div>
-              </div>
-              <div className="p-5">
-                <div className="flex justify-between items-start">
-                  <h4 className="font-semibold text-textdark truncate flex-1">{item.name}</h4>
-                  {item.tags.includes('indexed') && <CloudArrowUpIcon className="w-4 h-4 text-accent" title="Indexado na IA" />}
-                </div>
-                <p className="text-sm text-textmuted mt-1">Tipo: {item.type}</p>
-                {item.tags.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {item.tags.map(tag => (
-                      <span key={tag} className="bg-darkbg text-textlight text-xs px-2 py-1 rounded-full">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
+        <>
+          <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-6 rounded-lg shadow-md border border-gray-700 mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
+            {/* Knowledge Base Header Content */}
+            <div>
+              <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                <CircleStackIcon className="w-6 h-6 text-accent" /> Base de Conhecimento (IA)
+              </h3>
+              <p className="text-sm text-gray-300 mt-1">
+                {kbStoreName ?
+                  `Conectado a: ${kbStoreName}. Arquivos enviados podem ser pesquisados pelo Chatbot.` :
+                  "Crie um repositório para indexar seus arquivos e permitir que a IA responda com base neles."
+                }
+              </p>
+            </div>
+            <div>
+              {!kbStoreName ? (
+                <Button onClick={handleCreateKnowledgeBase} isLoading={kbLoading} variant="secondary">
+                  Criar Base de Conhecimento
+                </Button>
+              ) : (
+                <span className="text-xs font-mono bg-black/30 px-3 py-1 rounded text-accent border border-accent/20">
+                  Status: Ativo
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-lightbg p-6 rounded-lg shadow-sm border border-gray-800 mb-8">
+            {/* Search and Filters */}
+            <h3 className="text-xl font-semibold text-textlight mb-5">Gerenciar Conteúdo</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <Input
+                id="searchContent"
+                type="text"
+                placeholder="Buscar por nome..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="col-span-1 md:col-span-2"
+              />
+              <div>
+                <label htmlFor="tagFilter" className="sr-only">Filtrar por Tag</label>
+                <select
+                  id="tagFilter"
+                  value={selectedTag}
+                  onChange={(e) => setSelectedTag(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm bg-lightbg text-textdark focus:outline-none focus:ring-2 focus:ring-neonGreen focus:border-neonGreen focus:ring-offset-2 focus:ring-offset-lightbg sm:text-sm"
+                >
+                  <option value="all">Todas as Tags</option>
+                  {allTags.map(tag => (
+                    <option key={tag} value={tag}>{tag}</option>
+                  ))}
+                </select>
               </div>
             </div>
-          ))}
-        </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <label
+                htmlFor="file-upload-input"
+                className={`cursor-pointer inline-flex items-center justify-center px-5 py-2 text-base font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition duration-200 ease-in-out w-full sm:w-auto
+                    ${uploading ? 'opacity-60 cursor-not-allowed bg-accent text-darkbg' : 'bg-accent text-darkbg shadow-lg shadow-accent/50 hover:bg-neonGreen/80 focus:ring-neonGreen focus:ring-offset-lightbg'}`}
+              >
+                {uploading ? <LoadingSpinner /> : 'Enviar Arquivo'}
+                <input
+                  id="file-upload-input"
+                  type="file"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+              {hasActiveFilters && (
+                <Button variant="primary" onClick={handleClearFilters} className="w-full sm:w-auto">
+                  Limpar Filtros
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center items-center h-48">
+              <LoadingSpinner />
+              <p className="ml-2 text-textlight">Carregando biblioteca...</p>
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="bg-lightbg p-6 rounded-lg shadow-sm border border-gray-800 text-center text-textlight">
+              Nenhum item encontrado na biblioteca.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+              {filteredItems.map((item) => (
+                <div key={item.id} className="bg-lightbg rounded-lg shadow-sm border border-gray-800 overflow-hidden group">
+                  <div className="relative h-48 bg-gray-900 flex items-center justify-center overflow-hidden">
+                    {item.type === 'image' || item.type === 'video' ? (
+                      <img
+                        src={item.thumbnail_url || item.file_url || PLACEHOLDER_IMAGE_BASE64}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : item.type === 'audio' ? (
+                      <div className="text-gray-500 text-center p-4">
+                        <MusicalNoteIcon className="w-12 h-12 mx-auto mb-2 text-primary" />
+                        <p className="text-sm text-textlight">Arquivo de Áudio</p>
+                      </div>
+                    ) : (
+                      <div className="text-gray-500 text-center p-4">
+                        <DocumentTextIcon className="w-12 h-12 mx-auto mb-2 text-primary" />
+                        <p className="text-sm text-textlight">Arquivo de Texto</p>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 gap-2">
+                      <Button
+                        onClick={() => handleDownload(item.file_url, item.name)}
+                        variant="ghost"
+                        size="sm"
+                        className="text-white hover:bg-primary/20"
+                        title="Baixar"
+                        disabled={isProcessing}
+                      >
+                        <ArrowDownTrayIcon className="w-5 h-5 text-accent" />
+                      </Button>
+                      <Button
+                        onClick={() => handleShareItem(item)}
+                        variant="ghost"
+                        size="sm"
+                        className="text-white hover:bg-primary/20"
+                        title="Compartilhar"
+                        disabled={isProcessing}
+                      >
+                        <ShareIcon className="w-5 h-5 text-accent" />
+                      </Button>
+                      <Button
+                        onClick={() => navigateTo('SmartScheduler')}
+                        variant="ghost"
+                        size="sm"
+                        className="text-white hover:bg-primary/20"
+                        title="Usar no Calendário"
+                      >
+                        <CalendarDaysIcon className="w-5 h-5 text-accent" />
+                      </Button>
+                      <Button
+                        onClick={() => handleDeleteItem(item.id)}
+                        variant="danger"
+                        size="sm"
+                        className="text-white hover:bg-red-700"
+                        title="Excluir"
+                      >
+                        <TrashIcon className="w-5 h-5 text-red-400" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="p-5">
+                    <div className="flex justify-between items-start">
+                      <h4 className="font-semibold text-textdark truncate flex-1">{item.name}</h4>
+                      {item.tags.includes('indexed') && <CloudArrowUpIcon className="w-4 h-4 text-accent" title="Indexado na IA" />}
+                    </div>
+                    <p className="text-sm text-textmuted mt-1">Tipo: {item.type}</p>
+                    {item.tags.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {item.tags.map(tag => (
+                          <span key={tag} className="bg-darkbg text-textlight text-xs px-2 py-1 rounded-full">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
+
 };
 
 export default ContentLibrary;

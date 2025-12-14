@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Textarea from '../components/Textarea';
 import Input from '../components/Input';
 import Button from '../components/Button';
@@ -8,10 +8,11 @@ import VoiceoverControl from '../components/VoiceoverControl';
 import MediaActionsToolbar from '../components/MediaActionsToolbar'; // NOVO
 import { generateText, generateImage } from '../services/geminiService';
 import { saveAd } from '../services/firestoreService';
-import { Ad } from '../types';
+import { Ad, UserProfile } from '../types';
 import { GEMINI_PRO_MODEL, GEMINI_IMAGE_PRO_MODEL, PLACEHOLDER_IMAGE_BASE64 } from '../constants';
 import { Type } from '@google/genai';
 import { useToast } from '../contexts/ToastContext';
+import { getCurrentUser } from '../services/authService';
 
 type Platform = 'Instagram' | 'Facebook' | 'TikTok' | 'Google' | 'Pinterest';
 
@@ -24,14 +25,19 @@ const AdStudio: React.FC = () => {
   const [generatedAd, setGeneratedAd] = useState<Ad | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string>(PLACEHOLDER_IMAGE_BASE64);
   const [loading, setLoading] = useState<boolean>(false);
-  
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
   // Library Save State
   const [savedItemName, setSavedItemName] = useState<string>('');
   const [savedItemTags, setSavedItemTags] = useState<string>('');
-  
+
   const { addToast } = useToast();
 
   const userId = 'mock-user-123';
+
+  useEffect(() => {
+    getCurrentUser().then(setUserProfile);
+  }, []);
 
   const handleGenerateAd = useCallback(async () => {
     if (!productDescription.trim() || !targetAudience.trim()) {
@@ -46,10 +52,16 @@ const AdStudio: React.FC = () => {
     setSavedItemTags('');
 
     try {
-      const adPrompt = `Generate a compelling ad for ${selectedPlatform}.
+      let adPrompt = `Generate a compelling ad for ${selectedPlatform}.
       Product: "${productDescription}".
-      Target Audience: "${targetAudience}".
-      Provide a headline, ad copy, and a visual description for an image/video creative.
+      Target Audience: "${targetAudience}".`;
+
+      if (userProfile?.businessProfile) {
+        const bp = userProfile.businessProfile;
+        adPrompt += `\nBusiness Context: ${bp.name} (${bp.industry}).\nBrand Voice/Style: ${bp.visualStyle}.`;
+      }
+
+      adPrompt += `\nProvide a headline, ad copy, and a visual description for an image/video creative.
       Return the output as a JSON object with 'headline', 'copy', and 'visual_description' keys.`;
 
       const textResponse = await generateText(adPrompt, {
@@ -104,10 +116,10 @@ const AdStudio: React.FC = () => {
     setLoading(true); // Re-use loading state for saving
     try {
       const savedAd = await saveAd(generatedAd); // Save to mock Firestore
-      addToast({ 
-        type: 'success', 
-        title: 'Salvo', 
-        message: `Anúncio para "${savedAd.platform}" salvo com sucesso!` 
+      addToast({
+        type: 'success',
+        title: 'Salvo',
+        message: `Anúncio para "${savedAd.platform}" salvo com sucesso!`
       });
     } catch (err) {
       console.error('Error saving ad:', err);
@@ -220,31 +232,31 @@ const AdStudio: React.FC = () => {
           <div className="mt-8 pt-6 border-t border-gray-800">
             <h4 className="text-lg font-semibold text-textlight mb-4">Salvar Criativo na Biblioteca</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <Input
-                    id="adSaveName"
-                    label="Nome do Arquivo"
-                    value={savedItemName}
-                    onChange={(e) => setSavedItemName(e.target.value)}
-                    placeholder="Ex: Anúncio Black Friday"
-                />
-                <Input
-                    id="adSaveTags"
-                    label="Tags"
-                    value={savedItemTags}
-                    onChange={(e) => setSavedItemTags(e.target.value)}
-                    placeholder="Ex: ad, instagram, black friday"
-                />
+              <Input
+                id="adSaveName"
+                label="Nome do Arquivo"
+                value={savedItemName}
+                onChange={(e) => setSavedItemName(e.target.value)}
+                placeholder="Ex: Anúncio Black Friday"
+              />
+              <Input
+                id="adSaveTags"
+                label="Tags"
+                value={savedItemTags}
+                onChange={(e) => setSavedItemTags(e.target.value)}
+                placeholder="Ex: ad, instagram, black friday"
+              />
             </div>
             <SaveToLibraryButton
-                content={generatedImageUrl}
-                type="image"
-                userId={userId}
-                initialName={savedItemName || `Anúncio ${generatedAd.platform}`}
-                tags={savedItemTags.split(',').map(t => t.trim()).filter(Boolean)}
-                label="Salvar Apenas Criativo (Imagem)"
-                variant="secondary"
-                disabled={!generatedImageUrl || generatedImageUrl === PLACEHOLDER_IMAGE_BASE64}
-                className="w-full sm:w-auto"
+              content={generatedImageUrl}
+              type="image"
+              userId={userId}
+              initialName={savedItemName || `Anúncio ${generatedAd.platform}`}
+              tags={savedItemTags.split(',').map(t => t.trim()).filter(Boolean)}
+              label="Salvar Apenas Criativo (Imagem)"
+              variant="secondary"
+              disabled={!generatedImageUrl || generatedImageUrl === PLACEHOLDER_IMAGE_BASE64}
+              className="w-full sm:w-auto"
             />
           </div>
         </div>

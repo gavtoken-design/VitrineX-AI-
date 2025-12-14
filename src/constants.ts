@@ -1,6 +1,7 @@
 
 // Gemini Model Names
-export const GEMINI_FLASH_MODEL = 'gemini-2.5-flash';
+export const GEMINI_FLASH_MODEL = 'gemini-2.5-flash-lite';
+export const GEMINI_TOOLS_MODEL = 'gemini-2.5-flash'; // Safer for Tools/Grounding than Lite
 export const GEMINI_LITE_MODEL = 'gemini-2.0-flash-lite';
 export const GEMINI_PRO_MODEL = 'gemini-3-pro-preview';
 export const GEMINI_IMAGE_FLASH_MODEL = 'gemini-2.5-flash-image';
@@ -74,3 +75,71 @@ export const SEASONAL_TEMPLATES = [
     colorPalette: ['#FFD700', '#000000', '#FF4500']
   }
 ];
+
+// --- AI System Instructions & Optimization ---
+export const VITRINEX_SYSTEM_INSTRUCTION = `
+You are VitrineX AI, a high-performance, intelligent marketing assistant for small and medium businesses.
+Your core operating principles are:
+1. **VELOCITY & EFFICIENCY**: Provide direct, concise, and fast responses. Avoid fluff. Maximize density of information.
+2. **PRECISION & RELEVANCE**: Use valid, current market data suited for the specific business niche.
+3. **HIGH-CONVERSION QUALITY**: Write persuasive, punchy copywriting with clear Call-to-Actions (CTAs).
+4. **MARKET INTELLIGENCE**: Base suggestions on consumer behavior, predictive trends, and audience psychology.
+5. **PERSONALIZATION**: ALWAYS adapt tone, style, and strategy to the specific User Business Profile and Target Audience.
+6. **SCALABILITY**: Structure answers to be modular and easily actionable.
+If asked for a plan, break it down step-by-step. If asked for copy, provide ready-to-use text.
+`;
+
+
+export const IMAGE_PROMPT_ENHANCEMENT = `
+High-quality, professional product photography, 4k, studio lighting, highly detailed, commercial aesthetics, 
+vibrant colors, sharp focus, winning product composition. 
+Ensure the image is suitable for social media ads (Instagram/Facebook).
+`;
+
+// --- Product Studio Scenarios ---
+export const PRODUCT_SCENARIOS = [
+  {
+    id: 'marble',
+    label: 'Mármore Luxo',
+    icon: '🏛️',
+    prompt: 'Place the product on a luxurious white Carrara marble table. Soft, high-end studio lighting. Clean background. Professional product photography.',
+    previewColor: 'from-gray-100 to-gray-300'
+  },
+  {
+    id: 'nature',
+    label: 'Natureza Zen',
+    icon: '🌿',
+    prompt: 'Place the product in a serene nature setting, surrounded by soft greenery and blurred leaves in the foreground. Natural sunlight, fresh atmosphere.',
+    previewColor: 'from-green-100 to-green-200'
+  },
+  {
+    id: 'studio-white',
+    label: 'Estúdio Infinito',
+    icon: '⚪',
+    prompt: 'Place the product on a seamless infinite white background. Perfect commercial lighting, soft shadows, extremely clean and professional e-commerce look.',
+    previewColor: 'from-white to-gray-100'
+  },
+  {
+    id: 'wooden-desk',
+    label: 'Mesa de Madeira',
+    icon: '🪵',
+    prompt: 'Place the product on a rustic dark wooden desk. Warm, cozy lighting. Lifestyle photography feel.',
+    previewColor: 'from-amber-800 to-amber-900'
+  },
+  {
+    id: 'neon-cyber',
+    label: 'Cyberpunk Neon',
+    icon: '🌃',
+    prompt: 'Place the product in a futuristic cyberpunk city setting. Neon lights reflecting on the product (blue and pink). Night time, edgy and modern.',
+    previewColor: 'from-purple-900 to-blue-900'
+  },
+  {
+    id: 'kitchen',
+    label: 'Cozinha Gourmet',
+    icon: '🍳',
+    prompt: 'Place the product on a modern kitchen counter. Blurred kitchen implements in the background. Bright, inviting, home aesthetic.',
+    previewColor: 'from-orange-50 to-orange-100'
+  }
+];
+
+

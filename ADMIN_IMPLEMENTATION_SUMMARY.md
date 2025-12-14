@@ -329,11 +329,16 @@ Migrar para:
 - [x] Sistema de notificações
 - [x] Sistema de arquivos (backend)
 
-### Pendente (UI de Arquivos)
-- [ ] Aba "Arquivos" no AdminConsole
-- [ ] Modal de upload
-- [ ] Tabela de arquivos
-- [ ] Estatísticas visuais
+### Interface de Arquivos (Completo)
+- [x] Aba "Arquivos" no AdminConsole
+- [x] Modal de upload
+- [x] Tabela de arquivos
+- [x] Estatísticas visuais
+
+### Integração Cliente (Completo)
+- [x] Componente FileDownloadCenter
+- [x] Integração na ContentLibrary
+- [x] Hook useAvailableFiles
 
 ---
 
